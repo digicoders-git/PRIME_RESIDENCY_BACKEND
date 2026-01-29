@@ -1,0 +1,7 @@
+# Ignore all image backups but keep directory structure
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.gif
+!.gitkeep
