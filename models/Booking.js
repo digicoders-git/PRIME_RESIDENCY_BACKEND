@@ -13,6 +13,12 @@ const bookingSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Please add a phone number']
     },
+    idType: {
+        type: String
+    },
+    idNumber: {
+        type: String
+    },
     checkIn: {
         type: Date,
         required: [true, 'Please add a check-in date']
@@ -69,6 +75,12 @@ const bookingSchema = new mongoose.Schema({
     source: {
         type: String,
         default: 'Dashboard'
+    },
+    razorpayOrderId: {
+        type: String
+    },
+    razorpayPaymentId: {
+        type: String
     },
     bookingDate: {
         type: Date,

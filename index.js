@@ -39,6 +39,9 @@ app.use('/api/gallery', require('./routes/gallery'));
 app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/contacts', require('./routes/contacts'));
 app.use('/api/services', require('./routes/services'));
+app.use('/api/enquiries', require('./routes/enquiryRoutes'));
+app.use('/api/revenue', require('./routes/revenue'));
+app.use('/api/payment', require('./routes/payment'));
 
 // Error Handler Middleware
 app.use(errorHandler);

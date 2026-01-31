@@ -4,7 +4,9 @@ const {
     getBooking,
     createBooking,
     updateBooking,
-    deleteBooking
+    deleteBooking,
+    updateBookingPayment,
+    getBookingHistory
 } = require('../controllers/bookingController');
 
 const router = express.Router();
@@ -19,5 +21,13 @@ router
     .get(getBooking)
     .put(updateBooking)
     .delete(deleteBooking);
+
+router
+    .route('/history/:identifier')
+    .get(getBookingHistory);
+
+router
+    .route('/:id/payment')
+    .put(updateBookingPayment);
 
 module.exports = router;
