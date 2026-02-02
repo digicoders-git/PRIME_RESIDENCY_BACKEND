@@ -1,4 +1,5 @@
 const express = require('express');
+const updateAvailabilityMiddleware = require('../middleware/updateAvailability');
 const {
     getBookings,
     getBooking,
@@ -13,7 +14,7 @@ const router = express.Router();
 
 router
     .route('/')
-    .get(getBookings)
+    .get(updateAvailabilityMiddleware, getBookings)
     .post(createBooking);
 
 router

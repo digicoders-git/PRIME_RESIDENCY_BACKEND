@@ -42,6 +42,7 @@ app.use('/api/services', require('./routes/services'));
 app.use('/api/enquiries', require('./routes/enquiryRoutes'));
 app.use('/api/revenue', require('./routes/revenue'));
 app.use('/api/payment', require('./routes/payment'));
+app.use('/api/test', require('./routes/test'));
 
 // Error Handler Middleware
 app.use(errorHandler);

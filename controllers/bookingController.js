@@ -1,11 +1,16 @@
 const Booking = require('../models/Booking');
+const Room = require('../models/Room');
 const Revenue = require('../models/Revenue');
+const { isRoomAvailable, updateRoomAvailability } = require('../utils/roomAvailability');
 
 // @desc    Get all bookings
 // @route   GET /api/bookings
 // @access  Private/Admin
 exports.getBookings = async (req, res) => {
     try {
+        // Update room availability before fetching bookings
+        await updateRoomAvailability();
+        
         const bookings = await Booking.find().sort({ createdAt: -1 });
         res.status(200).json({
             success: true,
@@ -48,6 +53,20 @@ exports.getBooking = async (req, res) => {
 // @access  Public (for website) or Private (for Admin)
 exports.createBooking = async (req, res) => {
     try {
+        // Check if room is available for the given dates
+        const available = await isRoomAvailable(
+            req.body.roomNumber, 
+            req.body.checkIn, 
+            req.body.checkOut
+        );
+        
+        if (!available) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Room is already booked for the selected dates' 
+            });
+        }
+        
         const booking = await Booking.create(req.body);
         res.status(201).json({ success: true, data: booking });
     } catch (err) {
@@ -70,7 +89,7 @@ exports.updateBooking = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Booking not found' });
         }
 
-            // Auto-create revenue when status changes to Confirmed or Checked-in
+        // Auto-create revenue when status changes to Confirmed or Checked-in
         if (oldBooking.status !== booking.status && 
             (booking.status === 'Confirmed' || booking.status === 'Checked-in')) {
             
@@ -89,6 +108,15 @@ exports.updateBooking = async (req, res) => {
                     date: new Date()
                 });
             }
+        }
+        
+        // Update room status when booking is checked out or cancelled
+        if (oldBooking.status !== booking.status && 
+            (booking.status === 'Checked-out' || booking.status === 'Cancelled')) {
+            await Room.findOneAndUpdate(
+                { roomNumber: booking.roomNumber },
+                { status: 'Available' }
+            );
         }
 
         res.status(200).json({ success: true, data: booking });

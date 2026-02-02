@@ -1,5 +1,6 @@
 const Review = require('../models/Review');
-const { uploadToCloudinaryWithBackup } = require('../utils/cloudinary');
+const { uploadToCloudinary } = require('../utils/cloudinary');
+const { saveImageBackup } = require('../utils/imageBackup');
 
 // @desc    Get all reviews
 // @route   GET /api/reviews
@@ -50,8 +51,13 @@ exports.createReview = async (req, res) => {
         
         // Handle image upload if present
         if (req.file) {
-            const result = await uploadToCloudinaryWithBackup(req.file, 'prime-residency/reviews');
+            const result = await uploadToCloudinary(req.file.buffer, 'reviews');
             reviewData.customerImage = result.secure_url;
+            
+            // Save local backup
+            const timestamp = Date.now();
+            const filename = `${timestamp}_${req.file.originalname}`;
+            saveImageBackup(req.file.buffer, filename, 'images/reviews');
         }
         
         const review = await Review.create(reviewData);

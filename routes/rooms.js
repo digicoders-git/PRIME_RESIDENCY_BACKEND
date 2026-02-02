@@ -1,9 +1,11 @@
 const express = require('express');
 const multer = require('multer');
+const updateAvailabilityMiddleware = require('../middleware/updateAvailability');
 const {
     getRooms,
     getRoom,
     getRoomByNumber,
+    getAvailableRooms,
     createRoom,
     updateRoom,
     deleteRoom
@@ -34,8 +36,12 @@ const uploadFields = upload.fields([
 
 router
     .route('/')
-    .get(getRooms)
+    .get(updateAvailabilityMiddleware, getRooms)
     .post(uploadFields, createRoom);
+
+// Route to get available rooms for booking
+router.route('/available')
+    .get(updateAvailabilityMiddleware, getAvailableRooms);
 
 // Route to get room by room number (for URL privacy)
 router.route('/by-number/:roomNumber')

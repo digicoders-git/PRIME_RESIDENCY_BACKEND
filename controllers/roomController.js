@@ -1,14 +1,102 @@
 const Room = require('../models/Room');
+const Booking = require('../models/Booking');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinary');
 const { saveImageBackup } = require('../utils/imageBackup');
+
+// @desc    Get available rooms for booking
+// @route   GET /api/rooms/available
+// @access  Public
+exports.getAvailableRooms = async (req, res) => {
+    try {
+        const { checkIn, checkOut } = req.query;
+        
+        // Get all visible rooms
+        const allRooms = await Room.find({ visibility: true, status: { $ne: 'Maintenance' } });
+        
+        if (checkIn && checkOut) {
+            // Get currently booked rooms for the date range
+            const bookedRooms = await Booking.find({
+                status: { $in: ['Confirmed', 'Checked-in'] },
+                $or: [
+                    {
+                        checkIn: { $lte: new Date(checkIn) },
+                        checkOut: { $gt: new Date(checkIn) }
+                    },
+                    {
+                        checkIn: { $lt: new Date(checkOut) },
+                        checkOut: { $gte: new Date(checkOut) }
+                    },
+                    {
+                        checkIn: { $gte: new Date(checkIn) },
+                        checkOut: { $lte: new Date(checkOut) }
+                    }
+                ]
+            }).select('roomNumber');
+            
+            const bookedRoomNumbers = bookedRooms.map(booking => booking.roomNumber);
+            
+            // Return only available rooms
+            const availableRooms = allRooms.filter(room => 
+                !bookedRoomNumbers.includes(room.roomNumber)
+            );
+            
+            res.status(200).json({ 
+                success: true, 
+                count: availableRooms.length, 
+                data: availableRooms 
+            });
+        } else {
+            // Get currently booked rooms (without date filter)
+            const bookedRooms = await Booking.find({
+                status: { $in: ['Confirmed', 'Checked-in'] },
+                checkOut: { $gte: new Date() }
+            }).select('roomNumber');
+            
+            const bookedRoomNumbers = bookedRooms.map(booking => booking.roomNumber);
+            
+            // Return only available rooms
+            const availableRooms = allRooms.filter(room => 
+                !bookedRoomNumbers.includes(room.roomNumber)
+            );
+            
+            res.status(200).json({ 
+                success: true, 
+                count: availableRooms.length, 
+                data: availableRooms 
+            });
+        }
+    } catch (err) {
+        res.status(400).json({ success: false, message: err.message });
+    }
+};
 
 // @desc    Get all rooms
 // @route   GET /api/rooms
 // @access  Public
 exports.getRooms = async (req, res) => {
     try {
+        // Get currently booked rooms
+        const bookedRooms = await Booking.find({
+            status: { $in: ['Confirmed', 'Checked-in'] },
+            checkOut: { $gte: new Date() }
+        }).select('roomNumber');
+        
+        const bookedRoomNumbers = bookedRooms.map(booking => booking.roomNumber);
+        
+        // Get all rooms and mark booked ones
         const rooms = await Room.find();
-        res.status(200).json({ success: true, count: rooms.length, data: rooms });
+        const roomsWithStatus = rooms.map(room => {
+            const roomObj = room.toObject();
+            if (bookedRoomNumbers.includes(room.roomNumber)) {
+                roomObj.status = 'Booked';
+                roomObj.isAvailable = false;
+            } else {
+                roomObj.isAvailable = room.status === 'Available';
+            }
+            return roomObj;
+        });
+        
+        res.status(200).json({ success: true, count: roomsWithStatus.length, data: roomsWithStatus });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }
