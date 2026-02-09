@@ -3,10 +3,10 @@ const crypto = require('crypto');
 const Booking = require('../models/Booking');
 const Revenue = require('../models/Revenue');
 
-console.log('Razorpay credentials:', {
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET ? 'Present' : 'Missing'
-});
+// console.log('Razorpay credentials:', {
+//     key_id: process.env.RAZORPAY_KEY_ID,
+//     key_secret: process.env.RAZORPAY_KEY_SECRET ? 'Present' : 'Missing'
+// });
 
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
