@@ -19,8 +19,7 @@ const createAdmin = async () => {
         const admin = await User.create({
             name: 'Admin',
             email: 'admin@prime.com',
-            password: 'admin123',
-            role: 'admin'
+            password: 'admin123'
         });
 
         console.log('✅ Admin created successfully!');

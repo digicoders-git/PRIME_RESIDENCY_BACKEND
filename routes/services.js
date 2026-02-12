@@ -7,16 +7,15 @@ const {
     updateService,
     deleteService
 } = require('../controllers/serviceController');
-const { protect, admin } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Configure multer for file uploads
 const storage = multer.memoryStorage();
 const upload = multer({
     storage,
     limits: {
-        fileSize: 5 * 1024 * 1024 // 5MB limit
+        fileSize: 5 * 1024 * 1024
     },
     fileFilter: (req, file, cb) => {
         if (file.mimetype.startsWith('image/')) {
@@ -27,13 +26,10 @@ const upload = multer({
     }
 });
 
-// Public routes
 router.get('/', getAllServices);
 router.get('/:id', getServiceById);
-
-// Protected routes (admin only)
-router.post('/', protect, admin, upload.single('image'), createService);
-router.put('/:id', protect, admin, upload.single('image'), updateService);
-router.delete('/:id', protect, admin, deleteService);
+router.post('/', protect, upload.single('image'), createService);
+router.put('/:id', protect, upload.single('image'), updateService);
+router.delete('/:id', protect, deleteService);
 
 module.exports = router;

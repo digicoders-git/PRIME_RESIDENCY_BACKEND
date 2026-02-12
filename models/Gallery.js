@@ -16,7 +16,7 @@ const gallerySchema = new mongoose.Schema({
     category: {
         type: String,
         required: [true, 'Please add a category'],
-        enum: ['Rooms', 'Restaurant', 'Exterior', 'Events', 'Others'],
+        
         default: 'Others'
     }
 }, {

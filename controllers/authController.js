@@ -1,26 +1,6 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 
-// @desc    Register user
-// @route   POST /api/auth/register
-// @access  Public
-exports.register = async (req, res) => {
-    try {
-        const { name, email, password, role } = req.body;
-
-        const user = await User.create({
-            name,
-            email,
-            password,
-            role
-        });
-
-        sendTokenResponse(user, 201, res);
-    } catch (err) {
-        res.status(400).json({ success: false, message: err.message });
-    }
-};
-
 // @desc    Login user
 // @route   POST /api/auth/login
 // @access  Public
@@ -66,8 +46,7 @@ const sendTokenResponse = (user, statusCode, res) => {
         user: {
             id: user._id,
             name: user.name,
-            email: user.email,
-            role: user.role
+            email: user.email
         }
     });
 };

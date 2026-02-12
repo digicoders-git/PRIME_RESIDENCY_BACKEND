@@ -111,7 +111,17 @@ exports.getRoomByNumber = async (req, res) => {
         if (!room) {
             return res.status(404).json({ success: false, message: 'Room not found' });
         }
-        res.status(200).json({ success: true, data: room });
+        
+        // Get recent bookings for this room
+        const recentBookings = await Booking.find({ roomNumber: req.params.roomNumber })
+            .sort({ createdAt: -1 })
+            .limit(3)
+            .populate('guest', 'name email phone');
+        
+        const roomData = room.toObject();
+        roomData.recentBookings = recentBookings;
+        
+        res.status(200).json({ success: true, data: roomData });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }
@@ -170,10 +180,34 @@ exports.createRoom = async (req, res) => {
             image: imageUrl,
             gallery: galleryUrls
         };
+        
+        // Convert string 'true'/'false' to boolean for enableExtraCharges
+        if (roomData.enableExtraCharges !== undefined) {
+            roomData.enableExtraCharges = roomData.enableExtraCharges === 'true' || roomData.enableExtraCharges === true;
+        }
+        
+        // Calculate totalPrice based on enableExtraCharges
+        if (roomData.enableExtraCharges) {
+            const basePrice = parseFloat(roomData.price) || 0;
+            const discount = parseFloat(roomData.discount) || 0;
+            const extraBed = parseFloat(roomData.extraBedPrice) || 0;
+            const tax = parseFloat(roomData.taxGST) || 0;
+            
+            const discountAmount = (basePrice * discount) / 100;
+            const priceAfterDiscount = basePrice - discountAmount;
+            const taxAmount = (priceAfterDiscount * tax) / 100;
+            roomData.totalPrice = Math.round(priceAfterDiscount + extraBed + taxAmount);
+        } else {
+            // If charges disabled, totalPrice = base price
+            roomData.totalPrice = roomData.price;
+        }
 
         const room = await Room.create(roomData);
         res.status(201).json({ success: true, data: room });
     } catch (err) {
+        if (err.code === 11000 && err.keyPattern?.roomNumber) {
+            return res.status(400).json({ success: false, message: `Room number ${err.keyValue.roomNumber} already exists` });
+        }
         res.status(400).json({ success: false, message: err.message });
     }
 };
@@ -189,6 +223,27 @@ exports.updateRoom = async (req, res) => {
         }
 
         let updateData = { ...req.body };
+        
+        // Convert string 'true'/'false' to boolean for enableExtraCharges
+        if (updateData.enableExtraCharges !== undefined) {
+            updateData.enableExtraCharges = updateData.enableExtraCharges === 'true' || updateData.enableExtraCharges === true;
+        }
+        
+        // Calculate totalPrice based on enableExtraCharges
+        if (updateData.enableExtraCharges) {
+            const basePrice = parseFloat(updateData.price) || 0;
+            const discount = parseFloat(updateData.discount) || 0;
+            const extraBed = parseFloat(updateData.extraBedPrice) || 0;
+            const tax = parseFloat(updateData.taxGST) || 0;
+            
+            const discountAmount = (basePrice * discount) / 100;
+            const priceAfterDiscount = basePrice - discountAmount;
+            const taxAmount = (priceAfterDiscount * tax) / 100;
+            updateData.totalPrice = Math.round(priceAfterDiscount + extraBed + taxAmount);
+        } else {
+            // If charges disabled, totalPrice = base price
+            updateData.totalPrice = updateData.price;
+        }
         
         if (req.files) {
             if (req.files.image && req.files.image[0]) {
@@ -232,6 +287,9 @@ exports.updateRoom = async (req, res) => {
 
         res.status(200).json({ success: true, data: updatedRoom });
     } catch (err) {
+        if (err.code === 11000 && err.keyPattern?.roomNumber) {
+            return res.status(400).json({ success: false, message: `Room number ${err.keyValue.roomNumber} already exists` });
+        }
         res.status(400).json({ success: false, message: err.message });
     }
 };

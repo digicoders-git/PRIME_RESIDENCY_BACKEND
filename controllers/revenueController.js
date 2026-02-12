@@ -1,4 +1,5 @@
 const Revenue = require('../models/Revenue');
+const Booking = require('../models/Booking');
 
 // @desc    Get all revenue records
 // @route   GET /api/revenue
@@ -24,7 +25,7 @@ exports.getRevenue = async (req, res) => {
             .sort({ date: -1 });
 
         const totalRevenue = await Revenue.aggregate([
-            { $match: filter },
+            { $match: { ...filter, status: filter.status || 'Received' } },
             { $group: { _id: null, total: { $sum: '$amount' } } }
         ]);
 
@@ -122,49 +123,105 @@ exports.deleteRevenue = async (req, res) => {
 exports.getRevenueAnalytics = async (req, res) => {
     try {
         const today = new Date();
-        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        const startOfYear = new Date(today.getFullYear(), 0, 1);
-        const startOfWeek = new Date(today.setDate(today.getDate() - today.getDay()));
-        const lastWeekStart = new Date(startOfWeek.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const lastWeekEnd = new Date(startOfWeek.getTime() - 1);
+        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
 
-        const [dailyRevenue, weeklyRevenue, monthlyRevenue, yearlyRevenue, lastWeekRevenue, sourceBreakdown, weeklyTrend] = await Promise.all([
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+
+        const startOfYear = new Date(today.getFullYear(), 0, 1);
+        const endOfYear = new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999);
+
+        // Calculate start of current week (Sunday)
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        endOfWeek.setHours(23, 59, 59, 999);
+
+        // Calculate start of previous week
+        const lastWeekStart = new Date(startOfWeek);
+        lastWeekStart.setDate(startOfWeek.getDate() - 7);
+
+        const lastWeekEnd = new Date(lastWeekStart);
+        lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
+        lastWeekEnd.setHours(23, 59, 59, 999);
+
+        // Booking payment stats aggregation helper
+        const getBookingStats = async (startDate, endDate) => {
+            return await Booking.aggregate([
+                {
+                    $match: {
+                        createdAt: { $gte: startDate, $lte: endDate },
+                        status: { $ne: 'Cancelled' }
+                    }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        totalAmount: { $sum: '$amount' },
+                        totalPaid: { $sum: '$advance' },
+                        totalPending: { $sum: '$balance' },
+                        fullyPaidCount: {
+                            $sum: { $cond: [{ $eq: ['$paymentStatus', 'Paid'] }, 1, 0] }
+                        },
+                        partialPaidCount: {
+                            $sum: { $cond: [{ $eq: ['$paymentStatus', 'Partial'] }, 1, 0] }
+                        },
+                        pendingCount: {
+                            $sum: { $cond: [{ $eq: ['$paymentStatus', 'Pending'] }, 1, 0] }
+                        },
+                        totalBookings: { $sum: 1 }
+                    }
+                }
+            ]);
+        };
+
+        const [
+            dailyRevenue, weeklyRevenue, monthlyRevenue, yearlyRevenue,
+            lastWeekRevenue, sourceBreakdown, weeklyTrend,
+            dailyBookingStats, weeklyBookingStats, monthlyBookingStats, yearlyBookingStats
+        ] = await Promise.all([
             Revenue.aggregate([
-                { $match: { date: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) } } },
+                { $match: { date: { $gte: startOfDay, $lte: endOfDay }, status: 'Received' } },
                 { $group: { _id: null, total: { $sum: '$amount' } } }
             ]),
             Revenue.aggregate([
-                { $match: { date: { $gte: startOfWeek } } },
+                { $match: { date: { $gte: startOfWeek, $lte: endOfWeek }, status: 'Received' } },
                 { $group: { _id: null, total: { $sum: '$amount' } } }
             ]),
             Revenue.aggregate([
-                { $match: { date: { $gte: startOfMonth } } },
+                { $match: { date: { $gte: startOfMonth, $lte: endOfMonth }, status: 'Received' } },
                 { $group: { _id: null, total: { $sum: '$amount' } } }
             ]),
             Revenue.aggregate([
-                { $match: { date: { $gte: startOfYear } } },
+                { $match: { date: { $gte: startOfYear, $lte: endOfYear }, status: 'Received' } },
                 { $group: { _id: null, total: { $sum: '$amount' } } }
             ]),
             Revenue.aggregate([
-                { $match: { date: { $gte: lastWeekStart, $lte: lastWeekEnd } } },
+                { $match: { date: { $gte: lastWeekStart, $lte: lastWeekEnd }, status: 'Received' } },
                 { $group: { _id: null, total: { $sum: '$amount' } } }
             ]),
             Revenue.aggregate([
+                { $match: { status: 'Received' } },
                 { $group: { _id: '$source', total: { $sum: '$amount' }, count: { $sum: 1 } } },
                 { $sort: { total: -1 } }
             ]),
             Revenue.aggregate([
-                { 
-                    $match: { 
-                        date: { 
+                {
+                    $match: {
+                        date: {
                             $gte: new Date(new Date().setDate(new Date().getDate() - 6)),
                             $lte: new Date()
-                        } 
-                    } 
+                        },
+                        status: 'Received'
+                    }
                 },
                 {
                     $group: {
-                        _id: { 
+                        _id: {
                             date: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
                             source: { $ifNull: ["$bookingSource", "Dashboard"] }
                         },
@@ -188,7 +245,11 @@ exports.getRevenueAnalytics = async (req, res) => {
                     }
                 },
                 { $sort: { _id: 1 } }
-            ])
+            ]),
+            getBookingStats(startOfDay, endOfDay),
+            getBookingStats(startOfWeek, endOfWeek),
+            getBookingStats(startOfMonth, endOfMonth),
+            getBookingStats(startOfYear, endOfYear)
         ]);
 
         const currentWeek = weeklyRevenue[0]?.total || 0;
@@ -206,7 +267,13 @@ exports.getRevenueAnalytics = async (req, res) => {
                 yearly: yearlyRevenue[0]?.total || 0,
                 weeklyGrowth: Math.round(weeklyGrowth * 100) / 100,
                 sourceBreakdown,
-                weeklyTrend
+                weeklyTrend,
+                bookingStats: {
+                    daily: dailyBookingStats[0] || { totalAmount: 0, totalPaid: 0, totalPending: 0, fullyPaidCount: 0, partialPaidCount: 0, pendingCount: 0, totalBookings: 0 },
+                    weekly: weeklyBookingStats[0] || { totalAmount: 0, totalPaid: 0, totalPending: 0, fullyPaidCount: 0, partialPaidCount: 0, pendingCount: 0, totalBookings: 0 },
+                    monthly: monthlyBookingStats[0] || { totalAmount: 0, totalPaid: 0, totalPending: 0, fullyPaidCount: 0, partialPaidCount: 0, pendingCount: 0, totalBookings: 0 },
+                    yearly: yearlyBookingStats[0] || { totalAmount: 0, totalPaid: 0, totalPending: 0, fullyPaidCount: 0, partialPaidCount: 0, pendingCount: 0, totalBookings: 0 }
+                }
             }
         });
     } catch (error) {

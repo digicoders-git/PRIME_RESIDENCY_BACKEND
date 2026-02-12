@@ -13,7 +13,12 @@ const roomSchema = new mongoose.Schema({
     type: {
         type: String,
         required: [true, 'Please add a room type'],
-        enum: ['Classic', 'Deluxe', 'Executive', 'Presidential', 'Family', 'Garden']
+
+    },
+    category: {
+        type: String,
+        enum: ['Room', 'Banquet', 'Lawn'],
+        default: 'Room'
     },
     price: {
         type: Number,
@@ -43,6 +48,13 @@ const roomSchema = new mongoose.Schema({
     offerPrice: Number,
     extraBedPrice: Number,
     taxGST: Number,
+    totalPrice: Number,
+
+    // Charges Configuration
+    enableExtraCharges: {
+        type: Boolean,
+        default: false
+    },
 
     // Inventory
     totalRoomsCount: Number,
