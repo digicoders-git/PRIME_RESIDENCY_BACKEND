@@ -3,6 +3,9 @@ const Room = require('../models/Room');
 const Revenue = require('../models/Revenue');
 const { isRoomAvailable, updateRoomAvailability } = require('../utils/roomAvailability');
 
+const { uploadToCloudinary } = require('../utils/cloudinary');
+const { saveImageBackup } = require('../utils/imageBackup');
+
 // @desc    Get all bookings
 // @route   GET /api/bookings
 // @access  Private/Admin
@@ -53,11 +56,36 @@ exports.getBooking = async (req, res) => {
 // @access  Public (for website) or Private (for Admin)
 exports.createBooking = async (req, res) => {
     try {
+        const bookingData = { ...req.body };
+
+        // Handle file uploads if present
+        if (req.files) {
+            if (req.files.idFrontImage) {
+                const result = await uploadToCloudinary(req.files.idFrontImage[0].buffer, 'bookings');
+                bookingData.idFrontImage = result.secure_url;
+                // Save local backup
+                await saveImageBackup(req.files.idFrontImage[0].buffer, result.public_id, 'bookings');
+            }
+            if (req.files.idBackImage) {
+                const result = await uploadToCloudinary(req.files.idBackImage[0].buffer, 'bookings');
+                bookingData.idBackImage = result.secure_url;
+                // Save local backup
+                await saveImageBackup(req.files.idBackImage[0].buffer, result.public_id, 'bookings');
+            }
+        }
+
+        // Parse numeric fields if they are sent as strings via FormData
+        ['amount', 'advance', 'balance', 'nights', 'adults', 'children'].forEach(field => {
+            if (bookingData[field] !== undefined && bookingData[field] !== null) {
+                bookingData[field] = Number(bookingData[field]);
+            }
+        });
+
         // Check if room is available for the given dates
         const available = await isRoomAvailable(
-            req.body.roomNumber,
-            req.body.checkIn,
-            req.body.checkOut
+            bookingData.roomNumber,
+            bookingData.checkIn,
+            bookingData.checkOut
         );
 
         if (!available) {
@@ -68,13 +96,29 @@ exports.createBooking = async (req, res) => {
         }
 
         // Ensure status is Pending if payment is not completed
-        if (req.body.paymentStatus !== 'Paid' && req.body.paymentStatus !== 'Partial') {
-            req.body.status = 'Pending';
+        if (bookingData.paymentStatus !== 'Paid' && bookingData.paymentStatus !== 'Partial') {
+            bookingData.status = 'Pending';
         }
 
-        const booking = await Booking.create(req.body);
+        const booking = await Booking.create(bookingData);
+
+        // Record revenue if there's an advance payment
+        if (booking.advance > 0) {
+            await Revenue.create({
+                source: 'Room Booking',
+                amount: booking.advance,
+                description: `Booking payment for ${booking.guest} - ${booking.room} (${booking.roomNumber})`,
+                bookingId: booking._id,
+                bookingSource: booking.source || 'Direct',
+                paymentMethod: booking.razorpayPaymentId ? 'Online' : 'Cash',
+                status: 'Received',
+                date: new Date()
+            });
+        }
+
         res.status(201).json({ success: true, data: booking });
     } catch (err) {
+        console.error('Create booking error:', err);
         res.status(400).json({ success: false, message: err.message });
     }
 };

@@ -19,6 +19,12 @@ const bookingSchema = new mongoose.Schema({
     idNumber: {
         type: String
     },
+    idFrontImage: {
+        type: String
+    },
+    idBackImage: {
+        type: String
+    },
     checkIn: {
         type: Date,
         required: [true, 'Please add a check-in date']
