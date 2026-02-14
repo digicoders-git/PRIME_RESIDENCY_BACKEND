@@ -20,7 +20,7 @@ exports.handleWebhook = async (req, res) => {
     try {
         const webhookSignature = req.headers['x-razorpay-signature'];
         const webhookBody = JSON.stringify(req.body);
-        
+
         const expectedSignature = crypto
             .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_KEY_SECRET)
             .update(webhookBody)
@@ -28,17 +28,17 @@ exports.handleWebhook = async (req, res) => {
 
         if (webhookSignature === expectedSignature) {
             const { event, payload } = req.body;
-            
+
             if (event === 'payment.captured') {
                 const { order_id, id: payment_id, amount } = payload.payment.entity;
-                
+
                 // Find booking by razorpay order id
                 const booking = await Booking.findOne({ razorpayOrderId: order_id });
-                
+
                 if (booking) {
                     const paidAmount = amount / 100; // Convert paise to rupees
                     const newBalance = Math.max(0, booking.amount - paidAmount);
-                    
+
                     await Booking.findByIdAndUpdate(booking._id, {
                         paymentStatus: 'Paid',
                         advance: paidAmount,
@@ -46,11 +46,11 @@ exports.handleWebhook = async (req, res) => {
                         razorpayPaymentId: payment_id,
                         status: booking.status === 'Pending' ? 'Confirmed' : booking.status
                     });
-                    
+
                     console.log('Webhook: Payment captured for booking', booking._id);
                 }
             }
-            
+
             res.status(200).json({ success: true });
         } else {
             res.status(400).json({ success: false, message: 'Invalid webhook signature' });
@@ -84,9 +84,9 @@ exports.createOrder = async (req, res) => {
         };
 
         const order = await razorpay.orders.create(options);
-        
+
         console.log('Razorpay order created:', order);
-        
+
         res.status(200).json({
             success: true,
             data: order
@@ -109,13 +109,16 @@ exports.verifyPayment = async (req, res) => {
 
         console.log('Payment verification request:', { razorpay_order_id, razorpay_payment_id, bookingId, amount });
 
-        // First get the booking to verify amount
-        const existingBooking = await Booking.findById(bookingId);
-        if (!existingBooking) {
-            return res.status(404).json({
-                success: false,
-                message: "Booking not found"
-            });
+        // If bookingId is provided, verify it exists. If not (new flow), we just verify the signature.
+        let existingBooking = null;
+        if (bookingId && bookingId !== 'undefined') {
+            existingBooking = await Booking.findById(bookingId);
+            if (!existingBooking) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Booking not found"
+                });
+            }
         }
 
         const body = razorpay_order_id + "|" + razorpay_payment_id;
@@ -127,41 +130,41 @@ exports.verifyPayment = async (req, res) => {
         console.log('Signature verification:', { expectedSignature, receivedSignature: razorpay_signature });
 
         if (expectedSignature === razorpay_signature) {
-            // Payment is verified, update booking
-            const paidAmount = amount || existingBooking.amount;
-            const newBalance = existingBooking.amount - paidAmount;
-            
-            const booking = await Booking.findByIdAndUpdate(
-                bookingId,
-                {
-                    paymentStatus: 'Paid',
-                    advance: paidAmount,
-                    balance: Math.max(0, newBalance),
-                    razorpayOrderId: razorpay_order_id,
-                    razorpayPaymentId: razorpay_payment_id,
-                    status: existingBooking.status === 'Pending' ? 'Confirmed' : existingBooking.status
-                },
-                { new: true }
-            );
+            // If we have an existing booking, update it
+            if (existingBooking) {
+                const paidAmount = amount || existingBooking.amount;
+                const newBalance = existingBooking.amount - paidAmount;
 
-            // Create revenue record for successful payment
-            await Revenue.create({
-                source: 'Room Booking',
-                amount: paidAmount,
-                description: `Online payment for ${existingBooking.guest} - ${existingBooking.room}`,
-                bookingId: bookingId,
-                bookingSource: existingBooking.source,
-                paymentMethod: 'Online',
-                status: 'Received',
-                date: new Date()
-            });
+                await Booking.findByIdAndUpdate(
+                    bookingId,
+                    {
+                        paymentStatus: 'Paid',
+                        advance: paidAmount,
+                        balance: Math.max(0, newBalance),
+                        razorpayOrderId: razorpay_order_id,
+                        razorpayPaymentId: razorpay_payment_id,
+                        status: existingBooking.status === 'Pending' ? 'Confirmed' : existingBooking.status
+                    }
+                );
 
-            console.log('Booking updated successfully:', booking);
+                // Create revenue record
+                await Revenue.create({
+                    source: 'Room Booking',
+                    amount: paidAmount,
+                    description: `Online payment for ${existingBooking.guest} - ${existingBooking.room}`,
+                    bookingId: bookingId,
+                    bookingSource: existingBooking.source,
+                    paymentMethod: 'Online',
+                    status: 'Received',
+                    date: new Date()
+                });
+            }
 
             res.status(200).json({
                 success: true,
                 message: "Payment verified successfully",
-                data: booking
+                razorpay_order_id,
+                razorpay_payment_id
             });
         } else {
             console.log('Payment verification failed - signature mismatch');

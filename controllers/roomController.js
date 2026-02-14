@@ -9,10 +9,10 @@ const { saveImageBackup } = require('../utils/imageBackup');
 exports.getAvailableRooms = async (req, res) => {
     try {
         const { checkIn, checkOut } = req.query;
-        
+
         // Get all visible rooms
         const allRooms = await Room.find({ visibility: true, status: { $ne: 'Maintenance' } });
-        
+
         if (checkIn && checkOut) {
             // Get currently booked rooms for the date range
             const bookedRooms = await Booking.find({
@@ -32,18 +32,18 @@ exports.getAvailableRooms = async (req, res) => {
                     }
                 ]
             }).select('roomNumber');
-            
+
             const bookedRoomNumbers = bookedRooms.map(booking => booking.roomNumber);
-            
+
             // Return only available rooms
-            const availableRooms = allRooms.filter(room => 
+            const availableRooms = allRooms.filter(room =>
                 !bookedRoomNumbers.includes(room.roomNumber)
             );
-            
-            res.status(200).json({ 
-                success: true, 
-                count: availableRooms.length, 
-                data: availableRooms 
+
+            res.status(200).json({
+                success: true,
+                count: availableRooms.length,
+                data: availableRooms
             });
         } else {
             // Get currently booked rooms (without date filter)
@@ -51,18 +51,18 @@ exports.getAvailableRooms = async (req, res) => {
                 status: { $in: ['Confirmed', 'Checked-in'] },
                 checkOut: { $gte: new Date() }
             }).select('roomNumber');
-            
+
             const bookedRoomNumbers = bookedRooms.map(booking => booking.roomNumber);
-            
+
             // Return only available rooms
-            const availableRooms = allRooms.filter(room => 
+            const availableRooms = allRooms.filter(room =>
                 !bookedRoomNumbers.includes(room.roomNumber)
             );
-            
-            res.status(200).json({ 
-                success: true, 
-                count: availableRooms.length, 
-                data: availableRooms 
+
+            res.status(200).json({
+                success: true,
+                count: availableRooms.length,
+                data: availableRooms
             });
         }
     } catch (err) {
@@ -80,9 +80,9 @@ exports.getRooms = async (req, res) => {
             status: { $in: ['Confirmed', 'Checked-in'] },
             checkOut: { $gte: new Date() }
         }).select('roomNumber');
-        
+
         const bookedRoomNumbers = bookedRooms.map(booking => booking.roomNumber);
-        
+
         // Get all rooms and mark booked ones
         const rooms = await Room.find();
         const roomsWithStatus = rooms.map(room => {
@@ -95,7 +95,7 @@ exports.getRooms = async (req, res) => {
             }
             return roomObj;
         });
-        
+
         res.status(200).json({ success: true, count: roomsWithStatus.length, data: roomsWithStatus });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
@@ -111,16 +111,16 @@ exports.getRoomByNumber = async (req, res) => {
         if (!room) {
             return res.status(404).json({ success: false, message: 'Room not found' });
         }
-        
+
         // Get recent bookings for this room
         const recentBookings = await Booking.find({ roomNumber: req.params.roomNumber })
             .sort({ createdAt: -1 })
             .limit(3)
             .populate('guest', 'name email phone');
-        
+
         const roomData = room.toObject();
         roomData.recentBookings = recentBookings;
-        
+
         res.status(200).json({ success: true, data: roomData });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
@@ -154,19 +154,19 @@ exports.createRoom = async (req, res) => {
             if (req.files.image && req.files.image[0]) {
                 const result = await uploadToCloudinary(req.files.image[0].buffer, 'rooms');
                 imageUrl = result.secure_url;
-                
+
                 // Save local backup
                 const timestamp = Date.now();
                 const filename = `${timestamp}_${req.files.image[0].originalname}`;
                 saveImageBackup(req.files.image[0].buffer, filename, 'images/rooms');
             }
-            
+
             if (req.files.gallery) {
                 for (let i = 0; i < req.files.gallery.length; i++) {
                     const file = req.files.gallery[i];
                     const result = await uploadToCloudinary(file.buffer, 'rooms/gallery');
                     galleryUrls.push(result.secure_url);
-                    
+
                     // Save local backup
                     const timestamp = Date.now();
                     const filename = `${timestamp}_${i}_${file.originalname}`;
@@ -180,19 +180,19 @@ exports.createRoom = async (req, res) => {
             image: imageUrl,
             gallery: galleryUrls
         };
-        
+
         // Convert string 'true'/'false' to boolean for enableExtraCharges
         if (roomData.enableExtraCharges !== undefined) {
             roomData.enableExtraCharges = roomData.enableExtraCharges === 'true' || roomData.enableExtraCharges === true;
         }
-        
+
         // Calculate totalPrice based on enableExtraCharges
         if (roomData.enableExtraCharges) {
             const basePrice = parseFloat(roomData.price) || 0;
             const discount = parseFloat(roomData.discount) || 0;
             const extraBed = parseFloat(roomData.extraBedPrice) || 0;
             const tax = parseFloat(roomData.taxGST) || 0;
-            
+
             const discountAmount = (basePrice * discount) / 100;
             const priceAfterDiscount = basePrice - discountAmount;
             const taxAmount = (priceAfterDiscount * tax) / 100;
@@ -223,19 +223,19 @@ exports.updateRoom = async (req, res) => {
         }
 
         let updateData = { ...req.body };
-        
+
         // Convert string 'true'/'false' to boolean for enableExtraCharges
         if (updateData.enableExtraCharges !== undefined) {
             updateData.enableExtraCharges = updateData.enableExtraCharges === 'true' || updateData.enableExtraCharges === true;
         }
-        
+
         // Calculate totalPrice based on enableExtraCharges
         if (updateData.enableExtraCharges) {
             const basePrice = parseFloat(updateData.price) || 0;
             const discount = parseFloat(updateData.discount) || 0;
             const extraBed = parseFloat(updateData.extraBedPrice) || 0;
             const tax = parseFloat(updateData.taxGST) || 0;
-            
+
             const discountAmount = (basePrice * discount) / 100;
             const priceAfterDiscount = basePrice - discountAmount;
             const taxAmount = (priceAfterDiscount * tax) / 100;
@@ -244,7 +244,7 @@ exports.updateRoom = async (req, res) => {
             // If charges disabled, totalPrice = base price
             updateData.totalPrice = updateData.price;
         }
-        
+
         if (req.files) {
             if (req.files.image && req.files.image[0]) {
                 // Delete old image
@@ -254,23 +254,23 @@ exports.updateRoom = async (req, res) => {
                     const publicId = publicIdWithExt.split('.')[0];
                     await deleteFromCloudinary(`prime-residency/${publicId}`);
                 }
-                
+
                 const result = await uploadToCloudinary(req.files.image[0].buffer, 'rooms');
                 updateData.image = result.secure_url;
-                
+
                 // Save local backup
                 const timestamp = Date.now();
                 const filename = `${timestamp}_${req.files.image[0].originalname}`;
                 saveImageBackup(req.files.image[0].buffer, filename, 'images/rooms');
             }
-            
+
             if (req.files.gallery) {
                 const galleryUrls = [];
                 for (let i = 0; i < req.files.gallery.length; i++) {
                     const file = req.files.gallery[i];
                     const result = await uploadToCloudinary(file.buffer, 'rooms/gallery');
                     galleryUrls.push(result.secure_url);
-                    
+
                     // Save local backup
                     const timestamp = Date.now();
                     const filename = `${timestamp}_${i}_${file.originalname}`;

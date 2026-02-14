@@ -88,6 +88,10 @@ const bookingSchema = new mongoose.Schema({
     razorpayPaymentId: {
         type: String
     },
+    extraBed: {
+        type: Boolean,
+        default: false
+    },
     bookingDate: {
         type: Date,
         default: Date.now

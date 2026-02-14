@@ -81,6 +81,9 @@ exports.createBooking = async (req, res) => {
             }
         });
 
+        if (bookingData.extraBed === 'true') bookingData.extraBed = true;
+        if (bookingData.extraBed === 'false') bookingData.extraBed = false;
+
         // Check if room is available for the given dates
         const available = await isRoomAvailable(
             bookingData.roomNumber,
