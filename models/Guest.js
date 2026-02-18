@@ -7,8 +7,7 @@ const guestSchema = new mongoose.Schema({
     },
     email: {
         type: String,
-        required: [true, 'Please add an email'],
-        unique: true
+        required: [true, 'Please add an email']
     },
     phone: {
         type: String,
@@ -32,9 +31,17 @@ const guestSchema = new mongoose.Schema({
         type: String,
         enum: ['Regular', 'VIP', 'Blacklisted', 'New'],
         default: 'New'
+    },
+    property: {
+        type: String,
+        enum: ['Prime Residency', 'Prem Kunj'],
+        required: [true, 'Please assign a property']
     }
 }, {
     timestamps: true
 });
+
+// Compound index to allow same guest in different properties
+guestSchema.index({ email: 1, property: 1 }, { unique: true });
 
 module.exports = mongoose.model('Guest', guestSchema);

@@ -8,7 +8,9 @@ const {
     updateBooking,
     deleteBooking,
     updateBookingPayment,
-    getBookingHistory
+    getBookingHistory,
+    addFoodOrder,
+    addExtraCharge
 } = require('../controllers/bookingController');
 
 const router = express.Router();
@@ -34,10 +36,21 @@ const uploadFields = upload.fields([
     { name: 'idBackImage', maxCount: 1 }
 ]);
 
+// Wrapper to handle multer errors properly
+const uploadFieldsWithErrorHandling = (req, res, next) => {
+    uploadFields(req, res, (err) => {
+        if (err) {
+            console.error('Multer error:', err);
+            return res.status(400).json({ success: false, message: err.message });
+        }
+        next();
+    });
+};
+
 router
     .route('/')
     .get(updateAvailabilityMiddleware, getBookings)
-    .post(uploadFields, createBooking);
+    .post(uploadFieldsWithErrorHandling, createBooking);
 
 router
     .route('/:id')
@@ -52,5 +65,13 @@ router
 router
     .route('/:id/payment')
     .put(updateBookingPayment);
+
+router
+    .route('/:id/food-order')
+    .post(addFoodOrder);
+
+router
+    .route('/:id/extra-charge')
+    .post(addExtraCharge);
 
 module.exports = router;

@@ -6,18 +6,19 @@ const {
     deleteRevenue,
     getRevenueAnalytics
 } = require('../controllers/revenueController');
+const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
 router.route('/')
-    .get(getRevenue)
-    .post(createRevenue);
+    .get(protect, getRevenue)
+    .post(protect, createRevenue);
 
 router.route('/analytics')
-    .get(getRevenueAnalytics);
+    .get(protect, getRevenueAnalytics);
 
 router.route('/:id')
-    .put(updateRevenue)
-    .delete(deleteRevenue);
+    .put(protect, updateRevenue)
+    .delete(protect, deleteRevenue);
 
 module.exports = router;

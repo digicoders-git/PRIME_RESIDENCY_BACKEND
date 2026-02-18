@@ -10,34 +10,52 @@ exports.getAvailableRooms = async (req, res) => {
     try {
         const { checkIn, checkOut } = req.query;
 
-        // Get all visible rooms
-        const allRooms = await Room.find({ visibility: true, status: { $ne: 'Maintenance' } });
+        // Determine property context
+        let roomQuery = { visibility: true, status: { $ne: 'Maintenance' } };
+        if (req.user && req.user.role === 'Manager' && req.user.property) {
+            roomQuery.property = req.user.property;
+        } else if (req.query.property) {
+            roomQuery.property = req.query.property;
+        }
+
+        // Get all rooms in this property context
+        const allRooms = await Room.find(roomQuery);
+
+        // Check for specific property if manager or provided in query
+        let bookingFilter = {
+            status: { $in: ['Confirmed', 'Checked-in'] }
+        };
+
+        if (req.user && req.user.role === 'Manager' && req.user.property) {
+            bookingFilter.property = req.user.property;
+        } else if (req.query.property) {
+            bookingFilter.property = req.query.property;
+        }
 
         if (checkIn && checkOut) {
-            // Get currently booked rooms for the date range
-            const bookedRooms = await Booking.find({
-                status: { $in: ['Confirmed', 'Checked-in'] },
-                $or: [
-                    {
-                        checkIn: { $lte: new Date(checkIn) },
-                        checkOut: { $gt: new Date(checkIn) }
-                    },
-                    {
-                        checkIn: { $lt: new Date(checkOut) },
-                        checkOut: { $gte: new Date(checkOut) }
-                    },
-                    {
-                        checkIn: { $gte: new Date(checkIn) },
-                        checkOut: { $lte: new Date(checkOut) }
-                    }
-                ]
-            }).select('roomNumber');
+            bookingFilter.$or = [
+                {
+                    checkIn: { $lte: new Date(checkIn) },
+                    checkOut: { $gt: new Date(checkIn) }
+                },
+                {
+                    checkIn: { $lt: new Date(checkOut) },
+                    checkOut: { $gte: new Date(checkOut) }
+                },
+                {
+                    checkIn: { $gte: new Date(checkIn) },
+                    checkOut: { $lte: new Date(checkOut) }
+                }
+            ];
 
-            const bookedRoomNumbers = bookedRooms.map(booking => booking.roomNumber);
+            // Get currently booked rooms for the date range
+            const bookedRooms = await Booking.find(bookingFilter).select('roomNumber property');
+
+            const bookedRoomKeys = new Set(bookedRooms.map(booking => `${booking.roomNumber}_${booking.property}`));
 
             // Return only available rooms
             const availableRooms = allRooms.filter(room =>
-                !bookedRoomNumbers.includes(room.roomNumber)
+                !bookedRoomKeys.has(`${room.roomNumber}_${room.property}`)
             );
 
             res.status(200).json({
@@ -47,16 +65,15 @@ exports.getAvailableRooms = async (req, res) => {
             });
         } else {
             // Get currently booked rooms (without date filter)
-            const bookedRooms = await Booking.find({
-                status: { $in: ['Confirmed', 'Checked-in'] },
-                checkOut: { $gte: new Date() }
-            }).select('roomNumber');
+            bookingFilter.checkOut = { $gte: new Date() };
 
-            const bookedRoomNumbers = bookedRooms.map(booking => booking.roomNumber);
+            const bookedRooms = await Booking.find(bookingFilter).select('roomNumber property');
+
+            const bookedRoomKeys = new Set(bookedRooms.map(booking => `${booking.roomNumber}_${booking.property}`));
 
             // Return only available rooms
             const availableRooms = allRooms.filter(room =>
-                !bookedRoomNumbers.includes(room.roomNumber)
+                !bookedRoomKeys.has(`${room.roomNumber}_${room.property}`)
             );
 
             res.status(200).json({
@@ -75,19 +92,41 @@ exports.getAvailableRooms = async (req, res) => {
 // @access  Public
 exports.getRooms = async (req, res) => {
     try {
-        // Get currently booked rooms
-        const bookedRooms = await Booking.find({
+        let query = {};
+
+        // CRITICAL: Manager can ONLY see their property rooms
+        if (req.user && req.user.role === 'Manager') {
+            if (!req.user.property) {
+                console.warn('⚠️ Manager has no property assigned!');
+                return res.status(200).json({ success: true, count: 0, data: [] });
+            }
+            query.property = req.user.property;
+            console.log('🛡️ Manager Filter:', query.property);
+        } else if (req.query.property && req.query.property !== 'All') {
+            query.property = req.query.property;
+            console.log('👑 Admin Filter:', query.property);
+        }
+
+        // Get currently booked rooms for the specific property context
+        let bookingFilter = {
             status: { $in: ['Confirmed', 'Checked-in'] },
             checkOut: { $gte: new Date() }
-        }).select('roomNumber');
+        };
 
-        const bookedRoomNumbers = bookedRooms.map(booking => booking.roomNumber);
+        if (query.property) {
+            bookingFilter.property = query.property;
+        }
+
+        const bookedRooms = await Booking.find(bookingFilter).select('roomNumber property');
+        const bookedRoomKeys = new Set(bookedRooms.map(booking => `${booking.roomNumber}_${booking.property}`));
 
         // Get all rooms and mark booked ones
-        const rooms = await Room.find();
+        const rooms = await Room.find(query);
+        console.log(`✅ Found ${rooms.length} rooms with query:`, query);
+        
         const roomsWithStatus = rooms.map(room => {
             const roomObj = room.toObject();
-            if (bookedRoomNumbers.includes(room.roomNumber)) {
+            if (bookedRoomKeys.has(`${room.roomNumber}_${room.property}`)) {
                 roomObj.status = 'Booked';
                 roomObj.isAvailable = false;
             } else {
@@ -98,6 +137,7 @@ exports.getRooms = async (req, res) => {
 
         res.status(200).json({ success: true, count: roomsWithStatus.length, data: roomsWithStatus });
     } catch (err) {
+        console.error('❌ getRooms Error:', err.message);
         res.status(400).json({ success: false, message: err.message });
     }
 };
@@ -112,8 +152,9 @@ exports.getRoomByNumber = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Room not found' });
         }
 
-        // Get recent bookings for this room
-        const recentBookings = await Booking.find({ roomNumber: req.params.roomNumber })
+        // Get recent bookings for this room in the correct property context
+        const bookingFilter = { roomNumber: req.params.roomNumber, property: room.property };
+        const recentBookings = await Booking.find(bookingFilter)
             .sort({ createdAt: -1 })
             .limit(3)
             .populate('guest', 'name email phone');
@@ -181,6 +222,15 @@ exports.createRoom = async (req, res) => {
             gallery: galleryUrls
         };
 
+        // CRITICAL: Enforce property for Managers
+        if (req.user && req.user.role === 'Manager') {
+            if (!req.user.property) {
+                return res.status(403).json({ success: false, message: 'Manager has no property assigned' });
+            }
+            roomData.property = req.user.property;
+            console.log(`🛡️ Manager creating room in: ${req.user.property}`);
+        }
+
         // Convert string 'true'/'false' to boolean for enableExtraCharges
         if (roomData.enableExtraCharges !== undefined) {
             roomData.enableExtraCharges = roomData.enableExtraCharges === 'true' || roomData.enableExtraCharges === true;
@@ -198,15 +248,19 @@ exports.createRoom = async (req, res) => {
             const taxAmount = (priceAfterDiscount * tax) / 100;
             roomData.totalPrice = Math.round(priceAfterDiscount + extraBed + taxAmount);
         } else {
-            // If charges disabled, totalPrice = base price
             roomData.totalPrice = roomData.price;
         }
 
         const room = await Room.create(roomData);
+        console.log(`✅ Room created: ${room.roomNumber} in ${room.property}`);
         res.status(201).json({ success: true, data: room });
     } catch (err) {
+        console.error('❌ Create room error:', err);
         if (err.code === 11000 && err.keyPattern?.roomNumber) {
-            return res.status(400).json({ success: false, message: `Room number ${err.keyValue.roomNumber} already exists` });
+            return res.status(400).json({ 
+                success: false, 
+                message: `Room number ${err.keyValue.roomNumber} already exists in ${err.keyValue.property || 'this property'}` 
+            });
         }
         res.status(400).json({ success: false, message: err.message });
     }
@@ -223,6 +277,21 @@ exports.updateRoom = async (req, res) => {
         }
 
         let updateData = { ...req.body };
+
+        // CRITICAL: Manager can ONLY update their property rooms
+        if (req.user && req.user.role === 'Manager') {
+            if (!req.user.property) {
+                return res.status(403).json({ success: false, message: 'Manager has no property assigned' });
+            }
+            
+            // Check if room belongs to manager's property
+            if (room.property !== req.user.property) {
+                return res.status(403).json({ success: false, message: 'Not authorized to update this room' });
+            }
+            
+            // Force property to remain same
+            updateData.property = req.user.property;
+        }
 
         // Convert string 'true'/'false' to boolean for enableExtraCharges
         if (updateData.enableExtraCharges !== undefined) {
@@ -241,7 +310,6 @@ exports.updateRoom = async (req, res) => {
             const taxAmount = (priceAfterDiscount * tax) / 100;
             updateData.totalPrice = Math.round(priceAfterDiscount + extraBed + taxAmount);
         } else {
-            // If charges disabled, totalPrice = base price
             updateData.totalPrice = updateData.price;
         }
 
@@ -285,10 +353,12 @@ exports.updateRoom = async (req, res) => {
             runValidators: true
         });
 
+        console.log(`✅ Room updated: ${updatedRoom.roomNumber} in ${updatedRoom.property}`);
         res.status(200).json({ success: true, data: updatedRoom });
     } catch (err) {
+        console.error('❌ Update room error:', err);
         if (err.code === 11000 && err.keyPattern?.roomNumber) {
-            return res.status(400).json({ success: false, message: `Room number ${err.keyValue.roomNumber} already exists` });
+            return res.status(400).json({ success: false, message: `Room number ${err.keyValue.roomNumber} already exists in this property` });
         }
         res.status(400).json({ success: false, message: err.message });
     }

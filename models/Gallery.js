@@ -16,8 +16,13 @@ const gallerySchema = new mongoose.Schema({
     category: {
         type: String,
         required: [true, 'Please add a category'],
-        
+
         default: 'Others'
+    },
+    property: {
+        type: String,
+        enum: ['Prime Residency', 'Prem Kunj'],
+        required: [true, 'Please assign a property']
     }
 }, {
     timestamps: true

@@ -5,6 +5,7 @@ const {
     uploadImage,
     deleteImage
 } = require('../controllers/galleryController');
+const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -26,11 +27,11 @@ const upload = multer({
 
 router
     .route('/')
-    .get(getGallery)
-    .post(upload.single('image'), uploadImage);
+    .get(getGallery) // Public for website, but filters by property if authenticated
+    .post(protect, upload.single('image'), uploadImage);
 
 router
     .route('/:id')
-    .delete(deleteImage);
+    .delete(protect, deleteImage);
 
 module.exports = router;

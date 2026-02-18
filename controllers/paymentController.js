@@ -156,7 +156,8 @@ exports.verifyPayment = async (req, res) => {
                     bookingSource: existingBooking.source,
                     paymentMethod: 'Online',
                     status: 'Received',
-                    date: new Date()
+                    date: new Date(),
+                    property: existingBooking.property
                 });
             }
 

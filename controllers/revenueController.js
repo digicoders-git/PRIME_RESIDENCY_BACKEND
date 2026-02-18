@@ -3,11 +3,18 @@ const Booking = require('../models/Booking');
 
 // @desc    Get all revenue records
 // @route   GET /api/revenue
-// @access  Private (Admin)
+// @access  Private (Admin/Manager)
 exports.getRevenue = async (req, res) => {
     try {
         const { startDate, endDate, source } = req.query;
         let filter = {};
+
+        // Property filtering
+        if (req.user && req.user.role === 'Manager' && req.user.property) {
+            filter.property = req.user.property;
+        } else if (req.query.property) {
+            filter.property = req.query.property;
+        }
 
         if (startDate && endDate) {
             filter.date = {
@@ -45,10 +52,17 @@ exports.getRevenue = async (req, res) => {
 
 // @desc    Create new revenue record
 // @route   POST /api/revenue
-// @access  Private (Admin)
+// @access  Private (Admin/Manager)
 exports.createRevenue = async (req, res) => {
     try {
-        const revenue = await Revenue.create(req.body);
+        const revenueData = { ...req.body };
+
+        // If manager is creating, enforce their property
+        if (req.user && req.user.role === 'Manager' && req.user.property) {
+            revenueData.property = req.user.property;
+        }
+
+        const revenue = await Revenue.create(revenueData);
         res.status(201).json({
             success: true,
             data: revenue
@@ -151,13 +165,19 @@ exports.getRevenueAnalytics = async (req, res) => {
 
         // Booking payment stats aggregation helper
         const getBookingStats = async (startDate, endDate) => {
+            let bookingFilter = {
+                createdAt: { $gte: startDate, $lte: endDate },
+                status: { $ne: 'Cancelled' }
+            };
+
+            if (req.user && req.user.role === 'Manager' && req.user.property) {
+                bookingFilter.property = req.user.property;
+            } else if (req.query.property) {
+                bookingFilter.property = req.query.property;
+            }
+
             return await Booking.aggregate([
-                {
-                    $match: {
-                        createdAt: { $gte: startDate, $lte: endDate },
-                        status: { $ne: 'Cancelled' }
-                    }
-                },
+                { $match: bookingFilter },
                 {
                     $group: {
                         _id: null,
@@ -179,44 +199,51 @@ exports.getRevenueAnalytics = async (req, res) => {
             ]);
         };
 
+        const revenueFilter = { status: 'Received' };
+        if (req.user && req.user.role === 'Manager' && req.user.property) {
+            revenueFilter.property = req.user.property;
+        } else if (req.query.property) {
+            revenueFilter.property = req.query.property;
+        }
+
         const [
             dailyRevenue, weeklyRevenue, monthlyRevenue, yearlyRevenue,
             lastWeekRevenue, sourceBreakdown, weeklyTrend,
             dailyBookingStats, weeklyBookingStats, monthlyBookingStats, yearlyBookingStats
         ] = await Promise.all([
             Revenue.aggregate([
-                { $match: { date: { $gte: startOfDay, $lte: endOfDay }, status: 'Received' } },
+                { $match: { ...revenueFilter, date: { $gte: startOfDay, $lte: endOfDay } } },
                 { $group: { _id: null, total: { $sum: '$amount' } } }
             ]),
             Revenue.aggregate([
-                { $match: { date: { $gte: startOfWeek, $lte: endOfWeek }, status: 'Received' } },
+                { $match: { ...revenueFilter, date: { $gte: startOfWeek, $lte: endOfWeek } } },
                 { $group: { _id: null, total: { $sum: '$amount' } } }
             ]),
             Revenue.aggregate([
-                { $match: { date: { $gte: startOfMonth, $lte: endOfMonth }, status: 'Received' } },
+                { $match: { ...revenueFilter, date: { $gte: startOfMonth, $lte: endOfMonth } } },
                 { $group: { _id: null, total: { $sum: '$amount' } } }
             ]),
             Revenue.aggregate([
-                { $match: { date: { $gte: startOfYear, $lte: endOfYear }, status: 'Received' } },
+                { $match: { ...revenueFilter, date: { $gte: startOfYear, $lte: endOfYear } } },
                 { $group: { _id: null, total: { $sum: '$amount' } } }
             ]),
             Revenue.aggregate([
-                { $match: { date: { $gte: lastWeekStart, $lte: lastWeekEnd }, status: 'Received' } },
+                { $match: { ...revenueFilter, date: { $gte: lastWeekStart, $lte: lastWeekEnd } } },
                 { $group: { _id: null, total: { $sum: '$amount' } } }
             ]),
             Revenue.aggregate([
-                { $match: { status: 'Received' } },
+                { $match: revenueFilter },
                 { $group: { _id: '$source', total: { $sum: '$amount' }, count: { $sum: 1 } } },
                 { $sort: { total: -1 } }
             ]),
             Revenue.aggregate([
                 {
                     $match: {
+                        ...revenueFilter,
                         date: {
                             $gte: new Date(new Date().setDate(new Date().getDate() - 6)),
                             $lte: new Date()
-                        },
-                        status: 'Received'
+                        }
                     }
                 },
                 {

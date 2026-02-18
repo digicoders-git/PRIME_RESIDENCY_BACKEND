@@ -38,6 +38,11 @@ const serviceSchema = new mongoose.Schema({
     order: {
         type: Number,
         default: 0
+    },
+    property: {
+        type: String,
+        enum: ['Prime Residency', 'Prem Kunj'],
+        required: [true, 'Please assign a property']
     }
 }, {
     timestamps: true

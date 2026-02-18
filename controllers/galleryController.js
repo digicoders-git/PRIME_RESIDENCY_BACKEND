@@ -7,7 +7,14 @@ const { saveImageBackup } = require('../utils/imageBackup');
 // @access  Public
 exports.getGallery = async (req, res) => {
     try {
-        const images = await Gallery.find().sort({ createdAt: -1 });
+        let query = {};
+        if (req.user && req.user.role === 'Manager' && req.user.property) {
+            query.property = req.user.property;
+        } else if (req.query.property) {
+            query.property = req.query.property;
+        }
+
+        const images = await Gallery.find(query).sort({ createdAt: -1 });
         res.status(200).json({ success: true, count: images.length, data: images });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
@@ -25,7 +32,7 @@ exports.uploadImage = async (req, res) => {
 
         const category = req.body.category || 'Others';
         const folderName = `gallery/${category.toLowerCase()}`;
-        
+
         const result = await uploadToCloudinary(req.file.buffer, folderName);
 
         // Save local backup
@@ -38,7 +45,8 @@ exports.uploadImage = async (req, res) => {
             title: req.body.title || 'Untitled',
             imageUrl: result.secure_url,
             publicId: result.public_id,
-            category: category
+            category: category,
+            property: req.user.property || req.body.property // Use user's property or body property
         });
 
         res.status(201).json({ success: true, data: image });

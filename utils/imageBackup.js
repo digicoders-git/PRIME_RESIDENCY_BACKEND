@@ -5,7 +5,7 @@ const https = require('https');
 // Create backup directories
 const createBackupDirs = () => {
     const backupDir = path.join(__dirname, '../backups');
-    const dirs = ['images', 'images/gallery', 'images/rooms', 'images/reviews', 'images/services', 'images/facilities'];
+    const dirs = ['images', 'images/gallery', 'images/rooms', 'images/reviews', 'images/services', 'images/facilities', 'bookings'];
     
     dirs.forEach(dir => {
         const fullPath = path.join(backupDir, dir);

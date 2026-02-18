@@ -5,11 +5,17 @@ const { saveImageBackup } = require('../utils/imageBackup');
 // Get all services
 const getAllServices = async (req, res) => {
     try {
-        const { category } = req.query;
-        const filter = category ? { category, isActive: true } : { isActive: true };
-        
+        const { category, property } = req.query;
+        let filter = category ? { category, isActive: true } : { isActive: true };
+
+        if (req.user && req.user.role === 'Manager' && req.user.property) {
+            filter.property = req.user.property;
+        } else if (property) {
+            filter.property = property;
+        }
+
         const services = await Service.find(filter).sort({ order: 1, createdAt: -1 });
-        
+
         res.json({
             success: true,
             data: services
@@ -27,14 +33,14 @@ const getAllServices = async (req, res) => {
 const getServiceById = async (req, res) => {
     try {
         const service = await Service.findById(req.params.id);
-        
+
         if (!service) {
             return res.status(404).json({
                 success: false,
                 message: 'Service not found'
             });
         }
-        
+
         res.json({
             success: true,
             data: service
@@ -52,22 +58,22 @@ const getServiceById = async (req, res) => {
 const createService = async (req, res) => {
     try {
         const { title, subtitle, description, features, category, icon, order } = req.body;
-        
+
         let imageUrl = '';
-        
+
         if (req.file) {
             // Use category-based folder structure
             const folderName = category === 'facility' ? 'facilities' : 'services';
             const result = await uploadToCloudinary(req.file.buffer, folderName);
             imageUrl = result.secure_url;
-            
+
             // Save local backup
             const timestamp = Date.now();
             const filename = `${timestamp}_${req.file.originalname}`;
             const backupCategory = `images/${folderName}`;
             saveImageBackup(req.file.buffer, filename, backupCategory);
         }
-        
+
         // Parse features properly
         let parsedFeatures = [];
         if (features) {
@@ -77,7 +83,7 @@ const createService = async (req, res) => {
                 parsedFeatures = features.split(',').map(f => f.trim());
             }
         }
-        
+
         const service = new Service({
             title,
             subtitle,
@@ -86,11 +92,12 @@ const createService = async (req, res) => {
             features: parsedFeatures,
             category: category || 'main',
             icon,
-            order: parseInt(order) || 0
+            order: parseInt(order) || 0,
+            property: (req.user && req.user.property) ? req.user.property : (req.body.property || 'Prime Residency')
         });
-        
+
         await service.save();
-        
+
         res.status(201).json({
             success: true,
             message: 'Service created successfully',
@@ -110,7 +117,7 @@ const createService = async (req, res) => {
 const updateService = async (req, res) => {
     try {
         const { title, subtitle, description, features, category, icon, order, isActive } = req.body;
-        
+
         const service = await Service.findById(req.params.id);
         if (!service) {
             return res.status(404).json({
@@ -118,9 +125,16 @@ const updateService = async (req, res) => {
                 message: 'Service not found'
             });
         }
-        
+
+        // Property-based check for Managers
+        if (req.user && req.user.role === 'Manager' && req.user.property) {
+            if (service.property !== req.user.property) {
+                return res.status(403).json({ success: false, message: 'Not authorized to update this service' });
+            }
+        }
+
         let imageUrl = service.image;
-        
+
         if (req.file) {
             // Delete old image from cloudinary
             if (service.image) {
@@ -129,19 +143,19 @@ const updateService = async (req, res) => {
                 const publicId = publicIdWithExt.split('.')[0]; // remove extension
                 await deleteFromCloudinary(`prime-residency/${publicId}`);
             }
-            
+
             // Use category-based folder structure
             const folderName = (category || service.category) === 'facility' ? 'facilities' : 'services';
             const result = await uploadToCloudinary(req.file.buffer, folderName);
             imageUrl = result.secure_url;
-            
+
             // Save local backup
             const timestamp = Date.now();
             const filename = `${timestamp}_${req.file.originalname}`;
             const backupCategory = `images/${folderName}`;
             saveImageBackup(req.file.buffer, filename, backupCategory);
         }
-        
+
         // Parse features properly
         let parsedFeatures = service.features;
         if (features !== undefined) {
@@ -151,7 +165,7 @@ const updateService = async (req, res) => {
                 parsedFeatures = features.split(',').map(f => f.trim());
             }
         }
-        
+
         const updatedService = await Service.findByIdAndUpdate(
             req.params.id,
             {
@@ -167,7 +181,7 @@ const updateService = async (req, res) => {
             },
             { new: true }
         );
-        
+
         res.json({
             success: true,
             message: 'Service updated successfully',
@@ -193,7 +207,14 @@ const deleteService = async (req, res) => {
                 message: 'Service not found'
             });
         }
-        
+
+        // Property-based check for Managers
+        if (req.user && req.user.role === 'Manager' && req.user.property) {
+            if (service.property !== req.user.property) {
+                return res.status(403).json({ success: false, message: 'Not authorized to delete this service' });
+            }
+        }
+
         // Delete image from cloudinary
         if (service.image) {
             const urlParts = service.image.split('/');
@@ -201,9 +222,9 @@ const deleteService = async (req, res) => {
             const publicId = publicIdWithExt.split('.')[0]; // remove extension
             await deleteFromCloudinary(`prime-residency/${publicId}`);
         }
-        
+
         await Service.findByIdAndDelete(req.params.id);
-        
+
         res.json({
             success: true,
             message: 'Service deleted successfully'

@@ -11,6 +11,8 @@ const {
     deleteRoom
 } = require('../controllers/roomController');
 
+const { protect } = require('../middleware/auth');
+
 const router = express.Router();
 
 // Configure multer for file uploads
@@ -36,21 +38,21 @@ const uploadFields = upload.fields([
 
 router
     .route('/')
-    .get(updateAvailabilityMiddleware, getRooms)
-    .post(uploadFields, createRoom);
+    .get(protect, updateAvailabilityMiddleware, getRooms)
+    .post(protect, uploadFields, createRoom);
 
 // Route to get available rooms for booking
 router.route('/available')
-    .get(updateAvailabilityMiddleware, getAvailableRooms);
+    .get(updateAvailabilityMiddleware, getAvailableRooms); // Public for website
 
 // Route to get room by room number (for URL privacy)
 router.route('/by-number/:roomNumber')
-    .get(getRoomByNumber);
+    .get(getRoomByNumber); // Public for website
 
 router
     .route('/:id')
     .get(getRoom)
-    .put(uploadFields, updateRoom)
-    .delete(deleteRoom);
+    .put(protect, uploadFields, updateRoom)
+    .delete(protect, deleteRoom);
 
 module.exports = router;

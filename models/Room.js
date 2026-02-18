@@ -7,8 +7,7 @@ const roomSchema = new mongoose.Schema({
     },
     roomNumber: {
         type: String,
-        required: [true, 'Please add a room number'],
-        unique: true
+        required: [true, 'Please add a room number']
     },
     type: {
         type: String,
@@ -19,6 +18,11 @@ const roomSchema = new mongoose.Schema({
         type: String,
         enum: ['Room', 'Banquet', 'Lawn'],
         default: 'Room'
+    },
+    property: {
+        type: String,
+        enum: ['Prime Residency', 'Prem Kunj'],
+        default: 'Prime Residency'
     },
     price: {
         type: Number,
@@ -91,5 +95,8 @@ const roomSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+// Compound index to allow same room number in different properties
+roomSchema.index({ roomNumber: 1, property: 1 }, { unique: true });
 
 module.exports = mongoose.model('Room', roomSchema);

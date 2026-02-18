@@ -49,6 +49,11 @@ const reviewSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
+    },
+    property: {
+        type: String,
+        enum: ['Prime Residency', 'Prem Kunj'],
+        required: [true, 'Please assign a property']
     }
 });
 

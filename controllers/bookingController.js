@@ -14,7 +14,33 @@ exports.getBookings = async (req, res) => {
         // Update room availability before fetching bookings
         await updateRoomAvailability();
 
-        const bookings = await Booking.find().sort({ createdAt: -1 });
+        let query = {};
+
+        // Debug logging
+        console.log('GetBookings Request:', {
+            userId: req.user?._id,
+            userRole: req.user?.role,
+            userProperty: req.user?.property,
+            queryProperty: req.query.property
+        });
+
+        // CRITICAL: Manager can ONLY see their property bookings
+        if (req.user && req.user.role === 'Manager') {
+            if (req.user.property) {
+                query.property = req.user.property;
+                console.log('✓ Manager filter applied:', query.property);
+            } else {
+                console.warn('⚠ Manager has no property assigned!');
+                return res.status(200).json({ success: true, count: 0, data: [] });
+            }
+        } else if (req.query.property && req.query.property !== 'All') {
+            // Admin can filter by property
+            query.property = req.query.property;
+            console.log('✓ Admin filter applied:', query.property);
+        }
+
+        const bookings = await Booking.find(query).sort({ createdAt: -1 });
+        console.log(`✓ Found ${bookings.length} bookings for query:`, query);
         res.status(200).json({
             success: true,
             count: bookings.length,
@@ -56,6 +82,10 @@ exports.getBooking = async (req, res) => {
 // @access  Public (for website) or Private (for Admin)
 exports.createBooking = async (req, res) => {
     try {
+        console.log('=== CREATE BOOKING REQUEST ===');
+        console.log('Body:', req.body);
+        console.log('Files:', req.files);
+        
         const bookingData = { ...req.body };
 
         // Handle file uploads if present
@@ -63,14 +93,16 @@ exports.createBooking = async (req, res) => {
             if (req.files.idFrontImage) {
                 const result = await uploadToCloudinary(req.files.idFrontImage[0].buffer, 'bookings');
                 bookingData.idFrontImage = result.secure_url;
-                // Save local backup
-                await saveImageBackup(req.files.idFrontImage[0].buffer, result.public_id, 'bookings');
+                // Save local backup - extract just the filename from public_id
+                const filename = result.public_id.split('/').pop();
+                await saveImageBackup(req.files.idFrontImage[0].buffer, filename, 'bookings');
             }
             if (req.files.idBackImage) {
                 const result = await uploadToCloudinary(req.files.idBackImage[0].buffer, 'bookings');
                 bookingData.idBackImage = result.secure_url;
-                // Save local backup
-                await saveImageBackup(req.files.idBackImage[0].buffer, result.public_id, 'bookings');
+                // Save local backup - extract just the filename from public_id
+                const filename = result.public_id.split('/').pop();
+                await saveImageBackup(req.files.idBackImage[0].buffer, filename, 'bookings');
             }
         }
 
@@ -84,11 +116,33 @@ exports.createBooking = async (req, res) => {
         if (bookingData.extraBed === 'true') bookingData.extraBed = true;
         if (bookingData.extraBed === 'false') bookingData.extraBed = false;
 
+        // Fetch room using number and property
+        const roomSearchQuery = { roomNumber: bookingData.roomNumber };
+        const propertyToUse = bookingData.property || (req.user && req.user.property);
+
+        if (propertyToUse) {
+            roomSearchQuery.property = propertyToUse;
+        } else {
+            console.warn('Booking creation attempted without property context for room:', bookingData.roomNumber);
+            return res.status(400).json({
+                success: false,
+                message: 'Property context is required to identify the room correctly.'
+            });
+        }
+
+        const room = await Room.findOne(roomSearchQuery);
+        if (!room) {
+            return res.status(404).json({ success: false, message: 'Room not found in specified property' });
+        }
+        bookingData.property = room.property;
+
         // Check if room is available for the given dates
         const available = await isRoomAvailable(
             bookingData.roomNumber,
             bookingData.checkIn,
-            bookingData.checkOut
+            bookingData.checkOut,
+            null,
+            room.property // Pass property for uniqueness
         );
 
         if (!available) {
@@ -115,13 +169,16 @@ exports.createBooking = async (req, res) => {
                 bookingSource: booking.source || 'Direct',
                 paymentMethod: booking.razorpayPaymentId ? 'Online' : 'Cash',
                 status: 'Received',
-                date: new Date()
+                date: new Date(),
+                property: booking.property // Assign property to revenue
             });
         }
 
         res.status(201).json({ success: true, data: booking });
     } catch (err) {
-        console.error('Create booking error:', err);
+        console.error('=== CREATE BOOKING ERROR ===');
+        console.error('Error message:', err.message);
+        console.error('Error stack:', err.stack);
         res.status(400).json({ success: false, message: err.message });
     }
 };
@@ -169,7 +226,8 @@ exports.updateBooking = async (req, res) => {
                     bookingSource: booking.source,
                     paymentMethod: booking.source === 'Website' ? 'Online' : 'Cash',
                     status: 'Received',
-                    date: new Date()
+                    date: new Date(),
+                    property: booking.property
                 });
             }
         }
@@ -179,7 +237,7 @@ exports.updateBooking = async (req, res) => {
             (booking.status === 'Confirmed' || booking.status === 'Checked-in') &&
             booking.paymentStatus === 'Paid') {
             await Room.findOneAndUpdate(
-                { roomNumber: booking.roomNumber },
+                { roomNumber: booking.roomNumber, property: booking.property },
                 { status: 'Booked' }
             );
         }
@@ -188,7 +246,7 @@ exports.updateBooking = async (req, res) => {
         if (oldBooking.status !== booking.status &&
             (booking.status === 'Checked-out' || booking.status === 'Cancelled')) {
             await Room.findOneAndUpdate(
-                { roomNumber: booking.roomNumber },
+                { roomNumber: booking.roomNumber, property: booking.property },
                 { status: 'Available' }
             );
         }
@@ -241,7 +299,7 @@ exports.updateBookingPayment = async (req, res) => {
         // Update room status to Booked only when payment is complete
         if (paymentStatus === 'Paid') {
             await Room.findOneAndUpdate(
-                { roomNumber: booking.roomNumber },
+                { roomNumber: booking.roomNumber, property: booking.property },
                 { status: 'Booked' }
             );
         }
@@ -269,7 +327,8 @@ exports.updateBookingPayment = async (req, res) => {
                     bookingSource: booking.source,
                     paymentMethod: paymentMethod || 'Cash',
                     status: 'Received',
-                    date: new Date()
+                    date: new Date(),
+                    property: booking.property
                 });
             }
         }
@@ -301,6 +360,76 @@ exports.getBookingHistory = async (req, res) => {
             count: bookings.length,
             data: bookings
         });
+    } catch (err) {
+        res.status(400).json({ success: false, message: err.message });
+    }
+};
+
+// @desc    Add food order to booking
+// @route   POST /api/bookings/:id/food-order
+// @access  Private/Admin
+exports.addFoodOrder = async (req, res) => {
+    try {
+        const { item, quantity, price } = req.body;
+        const booking = await Booking.findById(req.params.id);
+
+        if (!booking) {
+            return res.status(404).json({ success: false, message: 'Booking not found' });
+        }
+
+        const orderAmount = Number(quantity || 1) * Number(price);
+        const foodOrder = {
+            item,
+            quantity: Number(quantity) || 1,
+            price: Number(price),
+            amount: orderAmount,
+            date: new Date()
+        };
+
+        const updatedBooking = await Booking.findByIdAndUpdate(
+            req.params.id,
+            {
+                $push: { foodOrders: foodOrder },
+                $inc: { amount: orderAmount, balance: orderAmount }
+            },
+            { new: true }
+        );
+
+        res.status(200).json({ success: true, data: updatedBooking });
+    } catch (err) {
+        res.status(400).json({ success: false, message: err.message });
+    }
+};
+
+// @desc    Add extra charge to booking
+// @route   POST /api/bookings/:id/extra-charge
+// @access  Private/Admin
+exports.addExtraCharge = async (req, res) => {
+    try {
+        const { description, amount } = req.body;
+        const booking = await Booking.findById(req.params.id);
+
+        if (!booking) {
+            return res.status(404).json({ success: false, message: 'Booking not found' });
+        }
+
+        const chargeAmount = Number(amount);
+        const extraCharge = {
+            description,
+            amount: chargeAmount,
+            date: new Date()
+        };
+
+        const updatedBooking = await Booking.findByIdAndUpdate(
+            req.params.id,
+            {
+                $push: { extraCharges: extraCharge },
+                $inc: { amount: chargeAmount, balance: chargeAmount }
+            },
+            { new: true }
+        );
+
+        res.status(200).json({ success: true, data: updatedBooking });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }

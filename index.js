@@ -43,6 +43,7 @@ app.use('/api/room-config', require('./routes/roomConfig'));
 app.use('/api/enquiries', require('./routes/enquiryRoutes'));
 app.use('/api/revenue', require('./routes/revenue'));
 app.use('/api/payment', require('./routes/payment'));
+app.use('/api/managers', require('./routes/managers'));
 app.use('/api/test', require('./routes/test'));
 
 // Error Handler Middleware

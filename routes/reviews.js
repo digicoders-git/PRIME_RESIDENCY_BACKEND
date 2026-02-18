@@ -8,6 +8,7 @@ const {
     deleteReview,
     approveReview
 } = require('../controllers/reviewController');
+const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -26,17 +27,17 @@ const upload = multer({
 
 router
     .route('/')
-    .get(getReviews)
-    .post(upload.single('customerImage'), createReview);
+    .get(getReviews) // Public for website
+    .post(upload.single('customerImage'), createReview); // Public for website
 
 router
     .route('/:id')
     .get(getReview)
-    .put(updateReview)
-    .delete(deleteReview);
+    .put(protect, updateReview)
+    .delete(protect, deleteReview);
 
 router
     .route('/:id/approve')
-    .put(approveReview);
+    .put(protect, approveReview);
 
 module.exports = router;

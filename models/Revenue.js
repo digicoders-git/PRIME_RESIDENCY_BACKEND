@@ -39,6 +39,11 @@ const revenueSchema = new mongoose.Schema({
         type: String,
         enum: ['Received', 'Pending', 'Refunded'],
         default: 'Received'
+    },
+    property: {
+        type: String,
+        enum: ['Prime Residency', 'Prem Kunj'],
+        required: [true, 'Please assign a property']
     }
 }, {
     timestamps: true

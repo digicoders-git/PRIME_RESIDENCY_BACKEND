@@ -18,7 +18,7 @@ exports.updateRoomAvailability = async () => {
 
             // Make room available again
             await Room.findOneAndUpdate(
-                { roomNumber: booking.roomNumber },
+                { roomNumber: booking.roomNumber, property: booking.property },
                 { status: 'Available' }
             );
         }
@@ -30,7 +30,7 @@ exports.updateRoomAvailability = async () => {
 };
 
 // Check if a room is available for given dates
-exports.isRoomAvailable = async (roomNumber, checkIn, checkOut, excludeBookingId = null) => {
+exports.isRoomAvailable = async (roomNumber, checkIn, checkOut, excludeBookingId = null, property = null) => {
     try {
         const query = {
             roomNumber: roomNumber,
@@ -51,6 +51,10 @@ exports.isRoomAvailable = async (roomNumber, checkIn, checkOut, excludeBookingId
             ]
         };
 
+        if (property) {
+            query.property = property;
+        }
+
         // Exclude current booking when updating
         if (excludeBookingId) {
             query._id = { $ne: excludeBookingId };
@@ -69,7 +73,7 @@ exports.getAvailableRoomsForDates = async (checkIn, checkOut) => {
     try {
         // Get all visible rooms
         const allRooms = await Room.find({ visibility: true, status: { $ne: 'Maintenance' } });
-        
+
         // Get booked rooms for the date range
         const bookedRooms = await Booking.find({
             status: { $in: ['Confirmed', 'Checked-in'] },
@@ -87,15 +91,15 @@ exports.getAvailableRoomsForDates = async (checkIn, checkOut) => {
                     checkOut: { $lte: new Date(checkOut) }
                 }
             ]
-        }).select('roomNumber');
-        
-        const bookedRoomNumbers = bookedRooms.map(booking => booking.roomNumber);
-        
+        }).select('roomNumber property');
+
+        const bookedRoomKeys = bookedRooms.map(booking => `${booking.roomNumber}_${booking.property}`);
+
         // Filter available rooms
-        const availableRooms = allRooms.filter(room => 
-            !bookedRoomNumbers.includes(room.roomNumber)
+        const availableRooms = allRooms.filter(room =>
+            !bookedRoomKeys.includes(`${room.roomNumber}_${room.property}`)
         );
-        
+
         return availableRooms;
     } catch (error) {
         console.error('Error getting available rooms:', error);
