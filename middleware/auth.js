@@ -18,7 +18,6 @@ exports.protect = async (req, res, next) => {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-        console.log('🔐 Decoded Token:', { id: decoded.id, role: decoded.role, property: decoded.property });
 
         // Check if it's a manager or admin based on decoded token
         if (decoded.role && decoded.role.toLowerCase() === 'manager') {
@@ -27,7 +26,6 @@ exports.protect = async (req, res, next) => {
                 return res.status(401).json({ success: false, message: 'Manager not found' });
             }
             
-            // Set user object with manager data
             req.user = {
                 _id: manager._id,
                 name: manager.name,
@@ -36,7 +34,7 @@ exports.protect = async (req, res, next) => {
                 property: manager.property,
                 permissions: manager.permissions
             };
-            console.log('✅ Manager Authenticated:', { id: req.user._id, property: req.user.property });
+            console.log('✅ Manager Auth:', manager.name, '| Property:', manager.property);
         } else {
             const admin = await User.findById(decoded.id);
             if (!admin) {
@@ -49,7 +47,7 @@ exports.protect = async (req, res, next) => {
                 email: admin.email,
                 role: 'Admin'
             };
-            console.log('✅ Admin Authenticated:', { id: req.user._id });
+            console.log('✅ Admin Auth:', admin.name);
         }
 
         next();

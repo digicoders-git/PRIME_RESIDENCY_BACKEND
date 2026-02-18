@@ -103,7 +103,7 @@ exports.updateReview = async (req, res) => {
             runValidators: true
         });
 
-        res.status(200).json({ success: true, data: review });
+        res.status(200).json({ success: true, data: updatedReview });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }
@@ -155,10 +155,6 @@ exports.approveReview = async (req, res) => {
         review.isApproved = true;
         review.isPublished = true;
         await review.save();
-
-        if (!review) {
-            return res.status(404).json({ success: false, message: 'Review not found' });
-        }
 
         res.status(200).json({ success: true, data: review });
     } catch (err) {

@@ -11,42 +11,40 @@ const { saveImageBackup } = require('../utils/imageBackup');
 // @access  Private/Admin
 exports.getBookings = async (req, res) => {
     try {
-        // Update room availability before fetching bookings
         await updateRoomAvailability();
 
         let query = {};
 
-        // Debug logging
-        console.log('GetBookings Request:', {
-            userId: req.user?._id,
-            userRole: req.user?.role,
-            userProperty: req.user?.property,
-            queryProperty: req.query.property
-        });
-
         // CRITICAL: Manager can ONLY see their property bookings
         if (req.user && req.user.role === 'Manager') {
-            if (req.user.property) {
-                query.property = req.user.property;
-                console.log('✓ Manager filter applied:', query.property);
-            } else {
+            if (!req.user.property) {
                 console.warn('⚠ Manager has no property assigned!');
                 return res.status(200).json({ success: true, count: 0, data: [] });
             }
+            query.property = req.user.property;
+            console.log('✓ Manager filter applied:', query.property);
         } else if (req.query.property && req.query.property !== 'All') {
-            // Admin can filter by property
             query.property = req.query.property;
             console.log('✓ Admin filter applied:', query.property);
+        } else {
+            console.log('✓ No property filter (Admin viewing all)');
         }
 
         const bookings = await Booking.find(query).sort({ createdAt: -1 });
-        console.log(`✓ Found ${bookings.length} bookings for query:`, query);
+        console.log(`✓ Found ${bookings.length} bookings`);
+        
+        // Log first booking's property for debugging
+        if (bookings.length > 0) {
+            console.log('Sample booking property:', bookings[0].property, 'Guest:', bookings[0].guest);
+        }
+        
         res.status(200).json({
             success: true,
             count: bookings.length,
             data: bookings
         });
     } catch (err) {
+        console.error('❌ getBookings error:', err);
         res.status(400).json({ success: false, message: err.message });
     }
 };
@@ -123,18 +121,21 @@ exports.createBooking = async (req, res) => {
         if (propertyToUse) {
             roomSearchQuery.property = propertyToUse;
         } else {
-            console.warn('Booking creation attempted without property context for room:', bookingData.roomNumber);
+            console.warn('⚠ Booking creation attempted without property context for room:', bookingData.roomNumber);
             return res.status(400).json({
                 success: false,
                 message: 'Property context is required to identify the room correctly.'
             });
         }
 
+        console.log('🔍 Searching for room:', roomSearchQuery);
         const room = await Room.findOne(roomSearchQuery);
         if (!room) {
+            console.error('❌ Room not found with query:', roomSearchQuery);
             return res.status(404).json({ success: false, message: 'Room not found in specified property' });
         }
         bookingData.property = room.property;
+        console.log('✅ Room found, setting booking property to:', room.property);
 
         // Check if room is available for the given dates
         const available = await isRoomAvailable(
