@@ -4,26 +4,27 @@ const Room = require('../models/Room');
 // Check and update room availability based on current bookings
 exports.updateRoomAvailability = async () => {
     try {
-        // Get all current bookings that should be checked out
-        const expiredBookings = await Booking.find({
-            status: { $in: ['Confirmed', 'Checked-in'] },
-            checkOut: { $lt: new Date() }
-        });
-
-        // Auto checkout expired bookings
-        for (const booking of expiredBookings) {
-            await Booking.findByIdAndUpdate(booking._id, {
-                status: 'Checked-out'
+        // Get all rooms
+        const allRooms = await Room.find({});
+        
+        for (const room of allRooms) {
+            // Check if room has any active bookings
+            const activeBookings = await Booking.find({
+                roomNumber: room.roomNumber,
+                property: room.property,
+                status: { $in: ['Confirmed', 'Checked-in'] }
             });
-
-            // Make room available again
-            await Room.findOneAndUpdate(
-                { roomNumber: booking.roomNumber, property: booking.property },
-                { status: 'Available' }
-            );
+            
+            // Update room status based on active bookings
+            const newStatus = activeBookings.length > 0 ? 'Booked' : 'Available';
+            
+            if (room.status !== newStatus && room.status !== 'Maintenance') {
+                await Room.findByIdAndUpdate(room._id, { status: newStatus });
+                console.log(`Room ${room.roomNumber} (${room.property}) status updated to: ${newStatus}`);
+            }
         }
-
-        console.log(`Updated ${expiredBookings.length} expired bookings`);
+        
+        console.log('Room availability check completed');
     } catch (error) {
         console.error('Error updating room availability:', error);
     }

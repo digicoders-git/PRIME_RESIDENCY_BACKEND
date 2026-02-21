@@ -270,27 +270,40 @@ exports.updateBookingPayment = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Booking not found' });
         }
 
+        // Calculate total amount including food orders and extra charges
+        const foodTotal = (booking.foodOrders || []).reduce((sum, order) => sum + (order.amount || 0), 0);
+        const extraChargesTotal = (booking.extraCharges || []).reduce((sum, charge) => sum + (charge.amount || 0), 0);
+        const totalAmount = booking.amount + foodTotal + extraChargesTotal;
+
         const advanceAmount = Number(advance) || 0;
-        const newBalance = Math.max(0, booking.amount - advanceAmount);
+        const previousAdvance = booking.advance || 0;
+        const newAdvance = previousAdvance + advanceAmount;
+        const newBalance = Math.max(0, totalAmount - newAdvance);
 
         let paymentStatus = 'Pending';
-        if (advanceAmount >= booking.amount) {
+        if (newBalance <= 0 && totalAmount > 0) {
             paymentStatus = 'Paid';
-        } else if (advanceAmount > 0) {
+        } else if (newAdvance > 0 && newBalance > 0) {
             paymentStatus = 'Partial';
         }
 
         console.log('Updating payment:', {
             bookingId: req.params.id,
-            advance: advanceAmount,
-            balance: newBalance,
+            roomAmount: booking.amount,
+            foodTotal,
+            extraChargesTotal,
+            totalAmount,
+            previousAdvance,
+            newPayment: advanceAmount,
+            newAdvance,
+            newBalance,
             paymentStatus
         });
 
         const updatedBooking = await Booking.findByIdAndUpdate(
             req.params.id,
             {
-                advance: advanceAmount,
+                advance: newAdvance,
                 balance: newBalance,
                 paymentStatus: paymentStatus
             },
@@ -441,11 +454,31 @@ exports.addExtraCharge = async (req, res) => {
 // @access  Private/Admin
 exports.deleteBooking = async (req, res) => {
     try {
-        const booking = await Booking.findByIdAndDelete(req.params.id);
+        const booking = await Booking.findById(req.params.id);
 
         if (!booking) {
             return res.status(404).json({ success: false, message: 'Booking not found' });
         }
+
+        // Delete the booking first
+        await Booking.findByIdAndDelete(req.params.id);
+
+        // Check if there are any other active bookings for this room
+        const activeBookings = await Booking.find({
+            roomNumber: booking.roomNumber,
+            property: booking.property,
+            status: { $in: ['Confirmed', 'Checked-in'] }
+        });
+
+        // Update room status based on remaining bookings
+        const newRoomStatus = activeBookings.length > 0 ? 'Booked' : 'Available';
+        
+        await Room.findOneAndUpdate(
+            { roomNumber: booking.roomNumber, property: booking.property },
+            { status: newRoomStatus }
+        );
+
+        console.log(`Booking deleted. Room ${booking.roomNumber} status set to: ${newRoomStatus}`);
 
         res.status(200).json({ success: true, data: {} });
     } catch (err) {

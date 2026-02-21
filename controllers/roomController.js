@@ -293,6 +293,22 @@ exports.updateRoom = async (req, res) => {
             updateData.property = req.user.property;
         }
 
+        // Check if roomNumber is being changed and if it conflicts with existing room
+        if (updateData.roomNumber && updateData.roomNumber !== room.roomNumber) {
+            const existingRoom = await Room.findOne({
+                roomNumber: updateData.roomNumber,
+                property: updateData.property || room.property,
+                _id: { $ne: req.params.id }
+            });
+
+            if (existingRoom) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Room number ${updateData.roomNumber} already exists in ${updateData.property || room.property}`
+                });
+            }
+        }
+
         // Convert string 'true'/'false' to boolean for enableExtraCharges
         if (updateData.enableExtraCharges !== undefined) {
             updateData.enableExtraCharges = updateData.enableExtraCharges === 'true' || updateData.enableExtraCharges === true;
@@ -358,7 +374,10 @@ exports.updateRoom = async (req, res) => {
     } catch (err) {
         console.error('❌ Update room error:', err);
         if (err.code === 11000 && err.keyPattern?.roomNumber) {
-            return res.status(400).json({ success: false, message: `Room number ${err.keyValue.roomNumber} already exists in this property` });
+            return res.status(400).json({ 
+                success: false, 
+                message: `Room number ${err.keyValue.roomNumber} already exists in ${err.keyValue.property || 'this property'}` 
+            });
         }
         res.status(400).json({ success: false, message: err.message });
     }
