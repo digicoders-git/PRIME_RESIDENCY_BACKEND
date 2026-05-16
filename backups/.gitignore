@@ -5,3 +5,9 @@
 *.webp
 *.gif
 !.gitkeep
+
+
+# Environment variables
+.env
+.env.local
+.env.production
