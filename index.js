@@ -22,6 +22,7 @@ const allowedOrigins = [
     'http://localhost:5174',
     'https://prime-residency-website.vercel.app',
     'https://prime-residency-admin.vercel.app',
+    'https://prime-residency-backend.onrender.com',
 ];
 
 app.use(cors({
