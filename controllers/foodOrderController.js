@@ -55,7 +55,8 @@ exports.createFoodOrder = async (req, res) => {
             guestName: booking.guest,
             property: booking.property,
             items: orderItems,
-            totalAmount
+            totalAmount,
+            status: req.body.status || 'Pending'
         });
 
         // Add to booking foodOrders array

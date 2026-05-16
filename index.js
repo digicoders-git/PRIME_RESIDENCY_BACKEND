@@ -20,10 +20,10 @@ app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 app.use(cors());
 
 // Request logging middleware
-app.use((req, res, next) => {
-    console.log(`${req.method} ${req.path}`);
-    next();
-});
+// app.use((req, res, next) => {
+//     console.log(`${req.method} ${req.path}`);
+//     next();
+// });
 
 // Basic route
 app.get('/', (req, res) => {

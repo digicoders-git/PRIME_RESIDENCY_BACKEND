@@ -18,25 +18,24 @@ exports.getBookings = async (req, res) => {
         // CRITICAL: Manager can ONLY see their property bookings
         if (req.user && req.user.role === 'Manager') {
             if (!req.user.property) {
-                console.warn('⚠ Manager has no property assigned!');
+                // console.warn('⚠ Manager has no property assigned!');
                 return res.status(200).json({ success: true, count: 0, data: [] });
             }
             query.property = req.user.property;
-            console.log('✓ Manager filter applied:', query.property);
+            // console.log('✓ Manager filter applied:', query.property);
         } else if (req.query.property && req.query.property !== 'All') {
             query.property = req.query.property;
-            console.log('✓ Admin filter applied:', query.property);
+            // console.log('✓ Admin filter applied:', query.property);
         } else {
-            console.log('✓ No property filter (Admin viewing all)');
+            // console.log('✓ No property filter (Admin viewing all)');
         }
 
         const bookings = await Booking.find(query).sort({ createdAt: -1 });
-        console.log(`✓ Found ${bookings.length} bookings`);
+        // console.log(`✓ Found ${bookings.length} bookings`);
         
-        // Log first booking's property for debugging
-        if (bookings.length > 0) {
-            console.log('Sample booking property:', bookings[0].property, 'Guest:', bookings[0].guest);
-        }
+        // if (bookings.length > 0) {
+        //     console.log('Sample booking property:', bookings[0].property, 'Guest:', bookings[0].guest);
+        // }
         
         res.status(200).json({
             success: true,
@@ -44,7 +43,7 @@ exports.getBookings = async (req, res) => {
             data: bookings
         });
     } catch (err) {
-        console.error('❌ getBookings error:', err);
+        // console.error('❌ getBookings error:', err);
         res.status(400).json({ success: false, message: err.message });
     }
 };
@@ -59,18 +58,11 @@ exports.getBooking = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Booking not found' });
         }
 
-        console.log('Fetched booking:', {
-            id: booking._id,
-            guest: booking.guest,
-            paymentStatus: booking.paymentStatus,
-            advance: booking.advance,
-            balance: booking.balance,
-            status: booking.status
-        });
+        // console.log('Fetched booking:', { id: booking._id, guest: booking.guest, paymentStatus: booking.paymentStatus });
 
         res.status(200).json({ success: true, data: booking });
     } catch (err) {
-        console.error('Get booking error:', err);
+        // console.error('Get booking error:', err);
         res.status(400).json({ success: false, message: err.message });
     }
 };
@@ -80,9 +72,10 @@ exports.getBooking = async (req, res) => {
 // @access  Public (for website) or Private (for Admin)
 exports.createBooking = async (req, res) => {
     try {
-        console.log('=== CREATE BOOKING REQUEST ===');
-        console.log('Body:', req.body);
-        console.log('Files:', req.files);
+        // console.log('=== CREATE BOOKING REQUEST ===');
+        // console.log('Body keys:', Object.keys(req.body));
+        // console.log('roomNumber:', req.body.roomNumber, '| property:', req.body.property);
+        // console.log('Files:', req.files ? Object.keys(req.files) : 'none');
         
         const bookingData = { ...req.body };
 
@@ -115,27 +108,27 @@ exports.createBooking = async (req, res) => {
         if (bookingData.extraBed === 'false') bookingData.extraBed = false;
 
         // Fetch room using number and property
-        const roomSearchQuery = { roomNumber: bookingData.roomNumber };
+        const roomSearchQuery = { roomNumber: String(bookingData.roomNumber) };
         const propertyToUse = bookingData.property || (req.user && req.user.property);
 
         if (propertyToUse) {
             roomSearchQuery.property = propertyToUse;
         } else {
-            console.warn('⚠ Booking creation attempted without property context for room:', bookingData.roomNumber);
+            // console.warn('⚠ Booking creation attempted without property context for room:', bookingData.roomNumber);
             return res.status(400).json({
                 success: false,
                 message: 'Property context is required to identify the room correctly.'
             });
         }
 
-        console.log('🔍 Searching for room:', roomSearchQuery);
+        // console.log('🔍 Searching for room:', roomSearchQuery);
         const room = await Room.findOne(roomSearchQuery);
         if (!room) {
-            console.error('❌ Room not found with query:', roomSearchQuery);
+            // console.error('❌ Room not found with query:', roomSearchQuery);
             return res.status(404).json({ success: false, message: 'Room not found in specified property' });
         }
         bookingData.property = room.property;
-        console.log('✅ Room found, setting booking property to:', room.property);
+        // console.log('✅ Room found, setting booking property to:', room.property);
 
         // Check if room is available for the given dates
         const available = await isRoomAvailable(
@@ -154,8 +147,13 @@ exports.createBooking = async (req, res) => {
         }
 
         // Ensure status is Pending if payment is not completed
+        // Website se Paid + Confirmed aaye to preserve karo
         if (bookingData.paymentStatus !== 'Paid' && bookingData.paymentStatus !== 'Partial') {
             bookingData.status = 'Pending';
+        }
+        // Agar Paid hai to status Confirmed hona chahiye (website payment ke baad)
+        if (bookingData.paymentStatus === 'Paid' && !bookingData.status) {
+            bookingData.status = 'Confirmed';
         }
 
         const booking = await Booking.create(bookingData);
@@ -177,10 +175,15 @@ exports.createBooking = async (req, res) => {
 
         res.status(201).json({ success: true, data: booking });
     } catch (err) {
-        console.error('=== CREATE BOOKING ERROR ===');
-        console.error('Error message:', err.message);
-        console.error('Error stack:', err.stack);
-        res.status(400).json({ success: false, message: err.message });
+        // console.error('=== CREATE BOOKING ERROR ===');
+        // console.error('Error name:', err.name);
+        // console.error('Error message:', err.message);
+        // console.error('Validation errors:', JSON.stringify(err.errors, null, 2));
+        // console.error('Error stack:', err.stack);
+        const message = err.name === 'ValidationError'
+            ? Object.values(err.errors).map(e => e.message).join(', ')
+            : err.message || 'Unknown error';
+        res.status(400).json({ success: false, message });
     }
 };
 
@@ -190,6 +193,21 @@ exports.createBooking = async (req, res) => {
 exports.updateBooking = async (req, res) => {
     try {
         const oldBooking = await Booking.findById(req.params.id);
+        if (!oldBooking) {
+            return res.status(404).json({ success: false, message: 'Booking not found' });
+        }
+
+        // Checked-out booking ka status change allow nahi
+        if (oldBooking.status === 'Checked-out' && req.body.status && req.body.status !== 'Checked-out') {
+            return res.status(400).json({ success: false, message: 'Checked-out booking ka status change nahi ho sakta' });
+        }
+
+        // Agar sirf status change ho raha hai to paymentStatus ko touch mat karo
+        if (req.body.status && Object.keys(req.body).length === 1) {
+            // Only status is being updated — preserve paymentStatus
+            req.body.paymentStatus = oldBooking.paymentStatus;
+        }
+
         // If cancelling, set balance to 0 and update revenue status
         if (req.body.status === 'Cancelled') {
             req.body.balance = 0;
@@ -287,18 +305,7 @@ exports.updateBookingPayment = async (req, res) => {
             paymentStatus = 'Partial';
         }
 
-        console.log('Updating payment:', {
-            bookingId: req.params.id,
-            roomAmount: booking.amount,
-            foodTotal,
-            extraChargesTotal,
-            totalAmount,
-            previousAdvance,
-            newPayment: advanceAmount,
-            newAdvance,
-            newBalance,
-            paymentStatus
-        });
+        // console.log('Updating payment:', { bookingId: req.params.id, totalAmount, newAdvance, newBalance, paymentStatus });
 
         const updatedBooking = await Booking.findByIdAndUpdate(
             req.params.id,
@@ -347,11 +354,11 @@ exports.updateBookingPayment = async (req, res) => {
             }
         }
 
-        console.log('Payment updated successfully:', updatedBooking);
+        // console.log('Payment updated successfully:', updatedBooking._id);
 
         res.status(200).json({ success: true, data: updatedBooking });
     } catch (err) {
-        console.error('Payment update error:', err);
+        // console.error('Payment update error:', err);
         res.status(400).json({ success: false, message: err.message });
     }
 };
@@ -478,7 +485,7 @@ exports.deleteBooking = async (req, res) => {
             { status: newRoomStatus }
         );
 
-        console.log(`Booking deleted. Room ${booking.roomNumber} status set to: ${newRoomStatus}`);
+        // console.log(`Booking deleted. Room ${booking.roomNumber} status set to: ${newRoomStatus}`);
 
         res.status(200).json({ success: true, data: {} });
     } catch (err) {

@@ -20,13 +20,13 @@ exports.updateRoomAvailability = async () => {
             
             if (room.status !== newStatus && room.status !== 'Maintenance') {
                 await Room.findByIdAndUpdate(room._id, { status: newStatus });
-                console.log(`Room ${room.roomNumber} (${room.property}) status updated to: ${newStatus}`);
+                // console.log(`Room ${room.roomNumber} (${room.property}) status updated to: ${newStatus}`);
             }
         }
         
-        console.log('Room availability check completed');
+        // console.log('Room availability check completed');
     } catch (error) {
-        console.error('Error updating room availability:', error);
+        // console.error('Error updating room availability:', error);
     }
 };
 
@@ -64,7 +64,7 @@ exports.isRoomAvailable = async (roomNumber, checkIn, checkOut, excludeBookingId
         const conflictingBooking = await Booking.findOne(query);
         return !conflictingBooking;
     } catch (error) {
-        console.error('Error checking room availability:', error);
+        // console.error('Error checking room availability:', error);
         return false;
     }
 };
@@ -103,7 +103,7 @@ exports.getAvailableRoomsForDates = async (checkIn, checkOut) => {
 
         return availableRooms;
     } catch (error) {
-        console.error('Error getting available rooms:', error);
+        // console.error('Error getting available rooms:', error);
         return [];
     }
 };
