@@ -34,7 +34,7 @@ exports.protect = async (req, res, next) => {
                 property: manager.property,
                 permissions: manager.permissions
             };
-            console.log('✅ Manager Auth:', manager.name, '| Property:', manager.property);
+            // console.log('✅ Manager Auth:', manager.name, '| Property:', manager.property);
         } else {
             const admin = await User.findById(decoded.id);
             if (!admin) {
@@ -47,12 +47,12 @@ exports.protect = async (req, res, next) => {
                 email: admin.email,
                 role: 'Admin'
             };
-            console.log('✅ Admin Auth:', admin.name);
+            // console.log('✅ Admin Auth:', admin.name);
         }
 
         next();
     } catch (err) {
-        console.error('❌ Auth Error:', err.message);
+        // console.error('❌ Auth Error:', err.message);
         return res.status(401).json({ success: false, message: 'Not authorized to access this route' });
     }
 };

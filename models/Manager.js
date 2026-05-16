@@ -52,7 +52,8 @@ const managerSchema = new mongoose.Schema({
     salary: Number,
     notes: String,
     resetPasswordToken: String,
-    resetPasswordExpire: Date
+    resetPasswordExpire: Date,
+    profilePic: { type: String, default: '' }
 }, {
     timestamps: true
 });

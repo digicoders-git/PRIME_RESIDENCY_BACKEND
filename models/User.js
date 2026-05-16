@@ -22,7 +22,9 @@ const userSchema = new mongoose.Schema({
         select: false
     },
     resetPasswordToken: String,
-    resetPasswordExpire: Date
+    resetPasswordExpire: Date,
+    profilePic: { type: String, default: '' },
+    phone: { type: String, default: '' }
 }, {
     timestamps: true
 });

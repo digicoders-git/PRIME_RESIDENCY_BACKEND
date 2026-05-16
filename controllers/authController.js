@@ -74,7 +74,7 @@ function sendTokenResponse(user, statusCode, res) {
 exports.forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
-        console.log('Forgot password request for:', email);
+        // console.log('Forgot password request for:', email);
 
         if (!email) {
             return res.status(400).json({ success: false, message: 'Please provide an email' });
@@ -89,7 +89,7 @@ exports.forgotPassword = async (req, res) => {
             user = await Manager.findOne({ email: emailLower });
         }
 
-        console.log('User found:', user ? 'Yes' : 'No');
+        // console.log('User found:', user ? 'Yes' : 'No');
 
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
@@ -154,8 +154,73 @@ exports.resetPassword = async (req, res) => {
 // @access  Private
 exports.getMe = async (req, res) => {
     try {
-        const user = await User.findById(req.user.id);
-        res.status(200).json({ success: true, data: user });
+        let user;
+        if (req.user.role === 'Manager') {
+            user = await Manager.findById(req.user._id).select('-password');
+        } else {
+            user = await User.findById(req.user._id).select('-password');
+        }
+        res.status(200).json({ success: true, data: { ...user.toObject(), role: req.user.role } });
+    } catch (err) {
+        res.status(400).json({ success: false, message: err.message });
+    }
+};
+
+// @desc    Update profile (name, phone, profilePic)
+// @route   PUT /api/auth/updateprofile
+// @access  Private
+exports.updateProfile = async (req, res) => {
+    try {
+        const { name, phone, profilePic } = req.body;
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (phone !== undefined) updateData.phone = phone;
+        if (profilePic !== undefined) updateData.profilePic = profilePic;
+
+        let user;
+        if (req.user.role === 'Manager') {
+            user = await Manager.findByIdAndUpdate(req.user._id, updateData, { new: true, runValidators: true }).select('-password');
+        } else {
+            user = await User.findByIdAndUpdate(req.user._id, updateData, { new: true, runValidators: true }).select('-password');
+        }
+
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+        res.status(200).json({ success: true, data: { ...user.toObject(), role: req.user.role } });
+    } catch (err) {
+        res.status(400).json({ success: false, message: err.message });
+    }
+};
+
+// @desc    Change password
+// @route   PUT /api/auth/changepassword
+// @access  Private
+exports.changePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ success: false, message: 'Please provide current and new password' });
+        }
+        if (newPassword.length < 6) {
+            return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+        }
+
+        let user;
+        if (req.user.role === 'Manager') {
+            user = await Manager.findById(req.user._id).select('+password');
+        } else {
+            user = await User.findById(req.user._id).select('+password');
+        }
+
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+        const isMatch = await user.matchPassword(currentPassword);
+        if (!isMatch) return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+
+        user.password = newPassword;
+        await user.save();
+
+        res.status(200).json({ success: true, message: 'Password changed successfully' });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }
