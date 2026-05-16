@@ -47,7 +47,7 @@ exports.handleWebhook = async (req, res) => {
                         status: booking.status === 'Pending' ? 'Confirmed' : booking.status
                     });
 
-                    console.log('Webhook: Payment captured for booking', booking._id);
+                    // console.log('Webhook: Payment captured for booking', booking._id);
                 }
             }
 
@@ -68,7 +68,7 @@ exports.createOrder = async (req, res) => {
     try {
         const { amount, currency = 'INR', receipt } = req.body;
 
-        console.log('Creating Razorpay order:', { amount, currency, receipt });
+        // console.log('Creating Razorpay order:', { amount, currency, receipt });
 
         if (!amount || amount <= 0) {
             return res.status(400).json({
@@ -85,7 +85,7 @@ exports.createOrder = async (req, res) => {
 
         const order = await razorpay.orders.create(options);
 
-        console.log('Razorpay order created:', order);
+        // console.log('Razorpay order created:', order);
 
         res.status(200).json({
             success: true,
@@ -107,7 +107,7 @@ exports.verifyPayment = async (req, res) => {
     try {
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature, bookingId, amount } = req.body;
 
-        console.log('Payment verification request:', { razorpay_order_id, razorpay_payment_id, bookingId, amount });
+        // console.log('Payment verification request:', { razorpay_order_id, razorpay_payment_id, bookingId, amount });
 
         // If bookingId is provided, verify it exists. If not (new flow), we just verify the signature.
         let existingBooking = null;
@@ -127,7 +127,7 @@ exports.verifyPayment = async (req, res) => {
             .update(body.toString())
             .digest("hex");
 
-        console.log('Signature verification:', { expectedSignature, receivedSignature: razorpay_signature });
+        // console.log('Signature verification:', { expectedSignature, receivedSignature: razorpay_signature });
 
         if (expectedSignature === razorpay_signature) {
             // If we have an existing booking, update it
@@ -168,7 +168,7 @@ exports.verifyPayment = async (req, res) => {
                 razorpay_payment_id
             });
         } else {
-            console.log('Payment verification failed - signature mismatch');
+            // console.log('Payment verification failed - signature mismatch');
             res.status(400).json({
                 success: false,
                 message: "Payment verification failed"

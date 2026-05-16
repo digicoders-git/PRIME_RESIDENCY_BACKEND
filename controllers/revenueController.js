@@ -283,7 +283,7 @@ exports.getRevenueAnalytics = async (req, res) => {
         const previousWeek = lastWeekRevenue[0]?.total || 0;
         const weeklyGrowth = previousWeek > 0 ? ((currentWeek - previousWeek) / previousWeek * 100) : 0;
 
-        console.log('Weekly Trend Data:', weeklyTrend); // Debug log
+        // console.log('Weekly Trend Data:', weeklyTrend); // Debug log
 
         res.status(200).json({
             success: true,

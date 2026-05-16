@@ -101,10 +101,10 @@ exports.getRooms = async (req, res) => {
                 return res.status(200).json({ success: true, count: 0, data: [] });
             }
             query.property = req.user.property;
-            console.log('🛡️ Manager Filter:', query.property);
+            // console.log('🛡️ Manager Filter:', query.property);
         } else if (req.query.property && req.query.property !== 'All') {
             query.property = req.query.property;
-            console.log('👑 Admin Filter:', query.property);
+            // console.log('👑 Admin Filter:', query.property);
         }
 
         // Get currently booked rooms for the specific property context
@@ -122,7 +122,7 @@ exports.getRooms = async (req, res) => {
 
         // Get all rooms and mark booked ones
         const rooms = await Room.find(query);
-        console.log(`✅ Found ${rooms.length} rooms with query:`, query);
+        // console.log(`✅ Found ${rooms.length} rooms with query:`, query);
         
         const roomsWithStatus = rooms.map(room => {
             const roomObj = room.toObject();
@@ -228,7 +228,7 @@ exports.createRoom = async (req, res) => {
                 return res.status(403).json({ success: false, message: 'Manager has no property assigned' });
             }
             roomData.property = req.user.property;
-            console.log(`🛡️ Manager creating room in: ${req.user.property}`);
+            // console.log(`🛡️ Manager creating room in: ${req.user.property}`);
         }
 
         // Convert string 'true'/'false' to boolean for enableExtraCharges
@@ -252,7 +252,7 @@ exports.createRoom = async (req, res) => {
         }
 
         const room = await Room.create(roomData);
-        console.log(`✅ Room created: ${room.roomNumber} in ${room.property}`);
+        // console.log(`✅ Room created: ${room.roomNumber} in ${room.property}`);
         res.status(201).json({ success: true, data: room });
     } catch (err) {
         console.error('❌ Create room error:', err);
@@ -369,7 +369,7 @@ exports.updateRoom = async (req, res) => {
             runValidators: true
         });
 
-        console.log(`✅ Room updated: ${updatedRoom.roomNumber} in ${updatedRoom.property}`);
+        // console.log(`✅ Room updated: ${updatedRoom.roomNumber} in ${updatedRoom.property}`);
         res.status(200).json({ success: true, data: updatedRoom });
     } catch (err) {
         console.error('❌ Update room error:', err);

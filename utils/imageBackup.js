@@ -21,7 +21,7 @@ const saveImageBackup = (buffer, filename, category = 'images') => {
         createBackupDirs();
         const backupPath = path.join(__dirname, '../backups', category, filename);
         fs.writeFileSync(backupPath, buffer);
-        console.log(`Image backup saved: ${backupPath}`);
+        // console.log(`Image backup saved: ${backupPath}`);
         return backupPath;
     } catch (error) {
         console.error('Failed to save image backup:', error);
@@ -41,7 +41,7 @@ const downloadAndSaveImage = (imageUrl, filename, category = 'images') => {
                 response.pipe(file);
                 file.on('finish', () => {
                     file.close();
-                    console.log(`Image downloaded and saved: ${backupPath}`);
+                    // console.log(`Image downloaded and saved: ${backupPath}`);
                     resolve(backupPath);
                 });
             }).on('error', (error) => {

@@ -83,7 +83,7 @@ exports.getManager = async (req, res) => {
 // @access  Private/Admin
 exports.createManager = async (req, res) => {
     try {
-        console.log('Create Manager Requested:', req.body);
+        // console.log('Create Manager Requested:', req.body);
 
         // Basic cleanup for optional empty strings that should be null/undefined for Mongoose
         if (req.body.salary === '' || req.body.salary === null) delete req.body.salary;
@@ -112,7 +112,7 @@ exports.createManager = async (req, res) => {
 // @access  Private/Admin
 exports.updateManager = async (req, res) => {
     try {
-        console.log('Update Manager Requested:', req.params.id, req.body);
+        // console.log('Update Manager Requested:', req.params.id, req.body);
 
         let manager = await Manager.findById(req.params.id);
 

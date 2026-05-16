@@ -7,8 +7,8 @@ exports.testRevenueData = async (req, res) => {
         const allRevenue = await Revenue.find().sort({ date: -1 });
         const allBookings = await Booking.find().sort({ createdAt: -1 });
         
-        console.log('All Revenue Records:', allRevenue);
-        console.log('All Bookings:', allBookings);
+        // console.log('All Revenue Records:', allRevenue);
+        // console.log('All Bookings:', allBookings);
         
         res.status(200).json({
             success: true,
