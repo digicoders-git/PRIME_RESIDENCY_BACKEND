@@ -5,6 +5,7 @@ const { isRoomAvailable, updateRoomAvailability } = require('../utils/roomAvaila
 
 const { uploadToCloudinary } = require('../utils/cloudinary');
 const { saveImageBackup } = require('../utils/imageBackup');
+const { isImageBlurry } = require('../utils/blurDetection');
 
 // @desc    Get all bookings
 // @route   GET /api/bookings
@@ -82,16 +83,30 @@ exports.createBooking = async (req, res) => {
         // Handle file uploads if present
         if (req.files) {
             if (req.files.idFrontImage) {
+                const frontCheck = await isImageBlurry(req.files.idFrontImage[0].buffer);
+                if (frontCheck.blurry) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Aadhar Front Image blur hai. Please clear photo upload karein.',
+                        field: 'idFrontImage'
+                    });
+                }
                 const result = await uploadToCloudinary(req.files.idFrontImage[0].buffer, 'bookings');
                 bookingData.idFrontImage = result.secure_url;
-                // Save local backup - extract just the filename from public_id
                 const filename = result.public_id.split('/').pop();
                 await saveImageBackup(req.files.idFrontImage[0].buffer, filename, 'bookings');
             }
             if (req.files.idBackImage) {
+                const backCheck = await isImageBlurry(req.files.idBackImage[0].buffer);
+                if (backCheck.blurry) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Aadhar Back Image blur hai. Please clear photo upload karein.',
+                        field: 'idBackImage'
+                    });
+                }
                 const result = await uploadToCloudinary(req.files.idBackImage[0].buffer, 'bookings');
                 bookingData.idBackImage = result.secure_url;
-                // Save local backup - extract just the filename from public_id
                 const filename = result.public_id.split('/').pop();
                 await saveImageBackup(req.files.idBackImage[0].buffer, filename, 'bookings');
             }

@@ -16,6 +16,9 @@ const app = express();
 const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:5174',
+    'http://localhost:5175',
+    'http://localhost:5176',
+    "https://prime-residency-admin-panel.vercel.app",
     'https://prime-residency-website.vercel.app',
     'https://prime-residency-admin.vercel.app',
     'https://prime-residency-backend.onrender.com',
@@ -63,6 +66,7 @@ app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/contacts', require('./routes/contacts'));
 app.use('/api/services', require('./routes/services'));
 app.use('/api/room-config', require('./routes/roomConfig'));
+app.use('/api/icons', require('./routes/icons'));
 app.use('/api/enquiries', require('./routes/enquiryRoutes'));
 app.use('/api/revenue', require('./routes/revenue'));
 app.use('/api/payment', require('./routes/payment'));
