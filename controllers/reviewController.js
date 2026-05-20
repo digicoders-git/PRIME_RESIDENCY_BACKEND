@@ -24,11 +24,30 @@ exports.getReviews = async (req, res) => {
             filter.property = req.query.property;
         }
 
+        // Add pagination
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        const skip = (page - 1) * limit;
+
         // For public frontend, show all approved reviews (not just latest)
         const sortOrder = (approved === 'true' && published === 'true') ? { createdAt: 1 } : { createdAt: -1 };
 
-        const reviews = await Review.find(filter).sort(sortOrder);
-        res.status(200).json({ success: true, count: reviews.length, data: reviews });
+        const reviews = await Review.find(filter)
+            .sort(sortOrder)
+            .skip(skip)
+            .limit(limit)
+            .lean();
+        
+        const total = await Review.countDocuments(filter);
+
+        res.status(200).json({ 
+            success: true, 
+            count: reviews.length, 
+            total: total,
+            page: page,
+            pages: Math.ceil(total / limit),
+            data: reviews 
+        });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }

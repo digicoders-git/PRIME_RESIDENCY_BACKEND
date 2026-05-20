@@ -24,11 +24,25 @@ exports.createEnquiry = async (req, res) => {
 // @access  Private (Admin)
 exports.getEnquiries = async (req, res) => {
     try {
-        const enquiries = await Enquiry.find().sort({ createdAt: -1 });
+        // Add pagination
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        const skip = (page - 1) * limit;
+
+        const enquiries = await Enquiry.find()
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean();
+
+        const total = await Enquiry.countDocuments();
 
         res.status(200).json({
             success: true,
             count: enquiries.length,
+            total: total,
+            page: page,
+            pages: Math.ceil(total / limit),
             data: enquiries
         });
     } catch (error) {

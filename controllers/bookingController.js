@@ -31,16 +31,25 @@ exports.getBookings = async (req, res) => {
             // console.log('✓ No property filter (Admin viewing all)');
         }
 
-        const bookings = await Booking.find(query).sort({ createdAt: -1 });
-        // console.log(`✓ Found ${bookings.length} bookings`);
+        // Add pagination
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        const skip = (page - 1) * limit;
+
+        const bookings = await Booking.find(query)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean();
         
-        // if (bookings.length > 0) {
-        //     console.log('Sample booking property:', bookings[0].property, 'Guest:', bookings[0].guest);
-        // }
+        const total = await Booking.countDocuments(query);
         
         res.status(200).json({
             success: true,
             count: bookings.length,
+            total: total,
+            page: page,
+            pages: Math.ceil(total / limit),
             data: bookings
         });
     } catch (err) {

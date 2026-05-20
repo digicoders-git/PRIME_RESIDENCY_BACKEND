@@ -3,7 +3,9 @@ const Icon = require('../models/Icon');
 // Get all icons
 const getAllIcons = async (req, res) => {
     try {
-        const icons = await Icon.find({ isActive: true }).sort({ category: 1, name: 1 });
+        const icons = await Icon.find({ isActive: true })
+            .sort({ category: 1, name: 1 })
+            .lean();
         res.json({
             success: true,
             data: icons
@@ -21,7 +23,9 @@ const getAllIcons = async (req, res) => {
 const getIconsByCategory = async (req, res) => {
     try {
         const { category } = req.params;
-        const icons = await Icon.find({ category, isActive: true }).sort({ name: 1 });
+        const icons = await Icon.find({ category, isActive: true })
+            .sort({ name: 1 })
+            .lean();
         res.json({
             success: true,
             data: icons

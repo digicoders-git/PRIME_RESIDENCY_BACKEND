@@ -10,8 +10,27 @@ exports.getFoodItems = async (req, res) => {
             query.property = req.query.property;
         }
 
-        const items = await FoodItem.find(query).sort({ category: 1, name: 1 });
-        res.json({ success: true, data: items });
+        // Add pagination
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 100;
+        const skip = (page - 1) * limit;
+
+        const items = await FoodItem.find(query)
+            .sort({ category: 1, name: 1 })
+            .skip(skip)
+            .limit(limit)
+            .lean();
+        
+        const total = await FoodItem.countDocuments(query);
+
+        res.json({ 
+            success: true, 
+            count: items.length,
+            total: total,
+            page: page,
+            pages: Math.ceil(total / limit),
+            data: items 
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

@@ -120,24 +120,41 @@ exports.getRooms = async (req, res) => {
             bookingFilter.property = query.property;
         }
 
-        const bookedRooms = await Booking.find(bookingFilter).select('roomNumber property category');
+        const bookedRooms = await Booking.find(bookingFilter)
+            .select('roomNumber property category')
+            .lean();
         const bookedRoomKeys = new Set(bookedRooms.map(booking => `${booking.roomNumber}_${booking.property}_${booking.category || 'Room'}`));
 
-        // Get all rooms and mark booked ones
-        const rooms = await Room.find(query);
+        // Get all rooms and mark booked ones - use pagination
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 100;
+        const skip = (page - 1) * limit;
+
+        const rooms = await Room.find(query)
+            .skip(skip)
+            .limit(limit)
+            .lean();
+        
+        const total = await Room.countDocuments(query);
         
         const roomsWithStatus = rooms.map(room => {
-            const roomObj = room.toObject();
             if (bookedRoomKeys.has(`${room.roomNumber}_${room.property}_${room.category || 'Room'}`)) {
-                roomObj.status = 'Booked';
-                roomObj.isAvailable = false;
+                room.status = 'Booked';
+                room.isAvailable = false;
             } else {
-                roomObj.isAvailable = room.status === 'Available';
+                room.isAvailable = room.status === 'Available';
             }
-            return roomObj;
+            return room;
         });
 
-        res.status(200).json({ success: true, count: roomsWithStatus.length, data: roomsWithStatus });
+        res.status(200).json({ 
+            success: true, 
+            count: roomsWithStatus.length, 
+            total: total,
+            page: page,
+            pages: Math.ceil(total / limit),
+            data: roomsWithStatus 
+        });
     } catch (err) {
         console.error('❌ getRooms Error:', err.message);
         res.status(400).json({ success: false, message: err.message });

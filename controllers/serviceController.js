@@ -14,10 +14,25 @@ const getAllServices = async (req, res) => {
             filter.property = property;
         }
 
-        const services = await Service.find(filter).sort({ order: 1, createdAt: -1 });
+        // Add pagination
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 100;
+        const skip = (page - 1) * limit;
+
+        const services = await Service.find(filter)
+            .sort({ order: 1, createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean();
+
+        const total = await Service.countDocuments(filter);
 
         res.json({
             success: true,
+            count: services.length,
+            total: total,
+            page: page,
+            pages: Math.ceil(total / limit),
             data: services
         });
     } catch (error) {

@@ -142,6 +142,15 @@ const bookingSchema = new mongoose.Schema({
     timestamps: true
 });
 
+// Add indexes for query optimization
+bookingSchema.index({ property: 1, createdAt: -1 });
+bookingSchema.index({ email: 1 });
+bookingSchema.index({ phone: 1 });
+bookingSchema.index({ razorpayOrderId: 1 });
+bookingSchema.index({ createdAt: -1 });
+bookingSchema.index({ status: 1 });
+bookingSchema.index({ paymentStatus: 1 });
+
 // Calculate total amount and balance before saving
 bookingSchema.pre('save', async function () {
     const foodTotal = this.foodOrders.reduce((sum, order) => sum + (order.amount || 0), 0);

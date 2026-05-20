@@ -14,8 +14,27 @@ exports.getGallery = async (req, res) => {
             query.property = req.query.property;
         }
 
-        const images = await Gallery.find(query).sort({ createdAt: -1 });
-        res.status(200).json({ success: true, count: images.length, data: images });
+        // Add pagination
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 100;
+        const skip = (page - 1) * limit;
+
+        const images = await Gallery.find(query)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean();
+        
+        const total = await Gallery.countDocuments(query);
+
+        res.status(200).json({ 
+            success: true, 
+            count: images.length, 
+            total: total,
+            page: page,
+            pages: Math.ceil(total / limit),
+            data: images 
+        });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }

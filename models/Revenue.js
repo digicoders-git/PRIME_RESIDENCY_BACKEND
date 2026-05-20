@@ -49,4 +49,11 @@ const revenueSchema = new mongoose.Schema({
     timestamps: true
 });
 
+// Add indexes for query optimization
+revenueSchema.index({ property: 1, date: -1 });
+revenueSchema.index({ date: -1 });
+revenueSchema.index({ source: 1 });
+revenueSchema.index({ bookingId: 1 });
+revenueSchema.index({ status: 1 });
+
 module.exports = mongoose.model('Revenue', revenueSchema);

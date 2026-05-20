@@ -15,8 +15,27 @@ exports.getContacts = async (req, res) => {
             filter.priority = priority;
         }
 
-        const contacts = await Contact.find(filter).sort({ createdAt: -1 });
-        res.status(200).json({ success: true, count: contacts.length, data: contacts });
+        // Add pagination
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        const skip = (page - 1) * limit;
+
+        const contacts = await Contact.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean();
+        
+        const total = await Contact.countDocuments(filter);
+
+        res.status(200).json({ 
+            success: true, 
+            count: contacts.length, 
+            total: total,
+            page: page,
+            pages: Math.ceil(total / limit),
+            data: contacts 
+        });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }

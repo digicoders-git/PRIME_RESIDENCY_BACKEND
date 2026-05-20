@@ -92,11 +92,27 @@ exports.getFoodOrders = async (req, res) => {
             query.property = req.query.property;
         }
 
-        const orders = await FoodOrder.find(query)
-            .populate('bookingId', 'guest phone email')
-            .sort({ createdAt: -1 });
+        // Add pagination
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        const skip = (page - 1) * limit;
 
-        res.json({ success: true, data: orders });
+        const orders = await FoodOrder.find(query)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean();
+
+        const total = await FoodOrder.countDocuments(query);
+
+        res.json({ 
+            success: true,
+            count: orders.length,
+            total: total,
+            page: page,
+            pages: Math.ceil(total / limit),
+            data: orders 
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

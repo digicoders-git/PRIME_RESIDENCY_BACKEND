@@ -27,19 +27,30 @@ exports.getRevenue = async (req, res) => {
             filter.source = source;
         }
 
+        // Add pagination
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        const skip = (page - 1) * limit;
+
         const revenue = await Revenue.find(filter)
-            .populate('bookingId', 'guestName roomNumber')
-            .sort({ date: -1 });
+            .sort({ date: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean();
 
         const totalRevenue = await Revenue.aggregate([
             { $match: { ...filter, status: filter.status || 'Received' } },
             { $group: { _id: null, total: { $sum: '$amount' } } }
         ]);
 
+        const total = await Revenue.countDocuments(filter);
+
         res.status(200).json({
             success: true,
             count: revenue.length,
             total: totalRevenue[0]?.total || 0,
+            page: page,
+            pages: Math.ceil(total / limit),
             data: revenue
         });
     } catch (error) {

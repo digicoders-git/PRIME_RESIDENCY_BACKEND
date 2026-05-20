@@ -52,10 +52,26 @@ exports.managerLogin = async (req, res) => {
 // @access  Private/Admin
 exports.getManagers = async (req, res) => {
     try {
-        const managers = await Manager.find().sort({ createdAt: -1 });
+        // Add pagination
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        const skip = (page - 1) * limit;
+
+        const managers = await Manager.find()
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .select('-password')
+            .lean();
+        
+        const total = await Manager.countDocuments();
+
         res.status(200).json({
             success: true,
             count: managers.length,
+            total: total,
+            page: page,
+            pages: Math.ceil(total / limit),
             data: managers
         });
     } catch (err) {

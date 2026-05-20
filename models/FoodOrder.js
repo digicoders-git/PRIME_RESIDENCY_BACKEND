@@ -46,4 +46,10 @@ const foodOrderSchema = new mongoose.Schema({
     timestamps: true
 });
 
+// Add indexes for query optimization
+foodOrderSchema.index({ property: 1, orderDate: -1 });
+foodOrderSchema.index({ bookingId: 1 });
+foodOrderSchema.index({ status: 1 });
+foodOrderSchema.index({ orderDate: -1 });
+
 module.exports = mongoose.model('FoodOrder', foodOrderSchema);

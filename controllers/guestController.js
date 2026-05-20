@@ -12,8 +12,27 @@ exports.getGuests = async (req, res) => {
             query.property = req.query.property;
         }
 
-        const guests = await Guest.find(query).sort({ createdAt: -1 });
-        res.status(200).json({ success: true, count: guests.length, data: guests });
+        // Add pagination
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        const skip = (page - 1) * limit;
+
+        const guests = await Guest.find(query)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean();
+        
+        const total = await Guest.countDocuments(query);
+
+        res.status(200).json({ 
+            success: true, 
+            count: guests.length, 
+            total: total,
+            page: page,
+            pages: Math.ceil(total / limit),
+            data: guests 
+        });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }
