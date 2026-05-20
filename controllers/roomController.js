@@ -101,10 +101,13 @@ exports.getRooms = async (req, res) => {
                 return res.status(200).json({ success: true, count: 0, data: [] });
             }
             query.property = req.user.property;
-            // console.log('🛡️ Manager Filter:', query.property);
         } else if (req.query.property && req.query.property !== 'All') {
             query.property = req.query.property;
-            // console.log('👑 Admin Filter:', query.property);
+        }
+
+        if (req.query.category && req.query.category !== 'All') {
+            const cats = req.query.category.split(',');
+            query.category = cats.length > 1 ? { $in: cats } : cats[0];
         }
 
         // Get currently booked rooms for the specific property context
@@ -117,16 +120,15 @@ exports.getRooms = async (req, res) => {
             bookingFilter.property = query.property;
         }
 
-        const bookedRooms = await Booking.find(bookingFilter).select('roomNumber property');
-        const bookedRoomKeys = new Set(bookedRooms.map(booking => `${booking.roomNumber}_${booking.property}`));
+        const bookedRooms = await Booking.find(bookingFilter).select('roomNumber property category');
+        const bookedRoomKeys = new Set(bookedRooms.map(booking => `${booking.roomNumber}_${booking.property}_${booking.category || 'Room'}`));
 
         // Get all rooms and mark booked ones
         const rooms = await Room.find(query);
-        // console.log(`✅ Found ${rooms.length} rooms with query:`, query);
         
         const roomsWithStatus = rooms.map(room => {
             const roomObj = room.toObject();
-            if (bookedRoomKeys.has(`${room.roomNumber}_${room.property}`)) {
+            if (bookedRoomKeys.has(`${room.roomNumber}_${room.property}_${room.category || 'Room'}`)) {
                 roomObj.status = 'Booked';
                 roomObj.isAvailable = false;
             } else {
@@ -177,7 +179,22 @@ exports.getRoom = async (req, res) => {
         if (!room) {
             return res.status(404).json({ success: false, message: 'Room not found' });
         }
-        res.status(200).json({ success: true, data: room });
+
+        // Check real-time booking status
+        const activeBooking = await Booking.findOne({
+            roomNumber: room.roomNumber,
+            property: room.property,
+            category: room.category,
+            status: { $in: ['Confirmed', 'Checked-in'] },
+            checkOut: { $gte: new Date() }
+        });
+
+        const roomObj = room.toObject();
+        if (activeBooking && room.status !== 'Maintenance') {
+            roomObj.status = 'Booked';
+        }
+
+        res.status(200).json({ success: true, data: roomObj });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }
@@ -298,6 +315,7 @@ exports.updateRoom = async (req, res) => {
             const existingRoom = await Room.findOne({
                 roomNumber: updateData.roomNumber,
                 property: updateData.property || room.property,
+                category: updateData.category || room.category,
                 _id: { $ne: req.params.id }
             });
 

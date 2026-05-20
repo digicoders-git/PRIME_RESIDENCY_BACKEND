@@ -8,10 +8,11 @@ exports.updateRoomAvailability = async () => {
         const allRooms = await Room.find({});
         
         for (const room of allRooms) {
-            // Check if room has any active bookings
+            // Check if room has any active bookings — match by roomNumber + property + category
             const activeBookings = await Booking.find({
                 roomNumber: room.roomNumber,
                 property: room.property,
+                category: room.category,
                 status: { $in: ['Confirmed', 'Checked-in'] }
             });
             
@@ -31,7 +32,7 @@ exports.updateRoomAvailability = async () => {
 };
 
 // Check if a room is available for given dates
-exports.isRoomAvailable = async (roomNumber, checkIn, checkOut, excludeBookingId = null, property = null) => {
+exports.isRoomAvailable = async (roomNumber, checkIn, checkOut, excludeBookingId = null, property = null, category = null) => {
     try {
         const query = {
             roomNumber: roomNumber,
@@ -52,14 +53,9 @@ exports.isRoomAvailable = async (roomNumber, checkIn, checkOut, excludeBookingId
             ]
         };
 
-        if (property) {
-            query.property = property;
-        }
-
-        // Exclude current booking when updating
-        if (excludeBookingId) {
-            query._id = { $ne: excludeBookingId };
-        }
+        if (property) query.property = property;
+        if (category) query.category = category;
+        if (excludeBookingId) query._id = { $ne: excludeBookingId };
 
         const conflictingBooking = await Booking.findOne(query);
         return !conflictingBooking;

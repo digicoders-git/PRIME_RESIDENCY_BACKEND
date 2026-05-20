@@ -100,6 +100,14 @@ const bookingSchema = new mongoose.Schema({
     razorpayPaymentId: {
         type: String
     },
+    paymentMethod: {
+        type: String,
+        enum: ['Cash', 'Card', 'UPI', 'Bank Transfer', 'Online'],
+        default: 'Cash'
+    },
+    transactionRef: {
+        type: String
+    },
     extraBed: {
         type: Boolean,
         default: false
@@ -120,6 +128,11 @@ const bookingSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Please assign a property'],
         enum: ['Prime Residency', 'Prem Kunj']
+    },
+    category: {
+        type: String,
+        enum: ['Room', 'Banquet', 'Lawn'],
+        default: 'Room'
     },
     bookingDate: {
         type: Date,

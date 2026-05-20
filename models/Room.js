@@ -96,7 +96,10 @@ const roomSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Compound index: same room number NOT allowed in same property (across all categories)
-roomSchema.index({ roomNumber: 1, property: 1 }, { unique: true });
+// Compound index: same room number allowed across different categories in same property
+roomSchema.index({ roomNumber: 1, property: 1, category: 1 }, { unique: true });
+roomSchema.index({ category: 1 });
+roomSchema.index({ category: 1, status: 1 });
+roomSchema.index({ property: 1, category: 1 });
 
 module.exports = mongoose.model('Room', roomSchema);

@@ -129,11 +129,14 @@ exports.createBooking = async (req, res) => {
         if (propertyToUse) {
             roomSearchQuery.property = propertyToUse;
         } else {
-            // console.warn('⚠ Booking creation attempted without property context for room:', bookingData.roomNumber);
             return res.status(400).json({
                 success: false,
                 message: 'Property context is required to identify the room correctly.'
             });
+        }
+
+        if (bookingData.category) {
+            roomSearchQuery.category = bookingData.category;
         }
 
         // console.log('🔍 Searching for room:', roomSearchQuery);
@@ -143,6 +146,7 @@ exports.createBooking = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Room not found in specified property' });
         }
         bookingData.property = room.property;
+        bookingData.category = room.category || 'Room';
         // console.log('✅ Room found, setting booking property to:', room.property);
 
         // Check if room is available for the given dates
@@ -151,7 +155,8 @@ exports.createBooking = async (req, res) => {
             bookingData.checkIn,
             bookingData.checkOut,
             null,
-            room.property // Pass property for uniqueness
+            room.property,
+            room.category
         );
 
         if (!available) {
@@ -181,7 +186,7 @@ exports.createBooking = async (req, res) => {
                 description: `Booking payment for ${booking.guest} - ${booking.room} (${booking.roomNumber})`,
                 bookingId: booking._id,
                 bookingSource: booking.source || 'Direct',
-                paymentMethod: booking.razorpayPaymentId ? 'Online' : 'Cash',
+                paymentMethod: booking.razorpayPaymentId ? 'Online' : (booking.paymentMethod || 'Cash'),
                 status: 'Received',
                 date: new Date(),
                 property: booking.property // Assign property to revenue
@@ -271,7 +276,7 @@ exports.updateBooking = async (req, res) => {
             (booking.status === 'Confirmed' || booking.status === 'Checked-in') &&
             booking.paymentStatus === 'Paid') {
             await Room.findOneAndUpdate(
-                { roomNumber: booking.roomNumber, property: booking.property },
+                { roomNumber: booking.roomNumber, property: booking.property, category: booking.category || 'Room' },
                 { status: 'Booked' }
             );
         }
@@ -280,7 +285,7 @@ exports.updateBooking = async (req, res) => {
         if (oldBooking.status !== booking.status &&
             (booking.status === 'Checked-out' || booking.status === 'Cancelled')) {
             await Room.findOneAndUpdate(
-                { roomNumber: booking.roomNumber, property: booking.property },
+                { roomNumber: booking.roomNumber, property: booking.property, category: booking.category || 'Room' },
                 { status: 'Available' }
             );
         }
@@ -335,38 +340,24 @@ exports.updateBookingPayment = async (req, res) => {
         // Update room status to Booked only when payment is complete
         if (paymentStatus === 'Paid') {
             await Room.findOneAndUpdate(
-                { roomNumber: booking.roomNumber, property: booking.property },
+                { roomNumber: booking.roomNumber, property: booking.property, category: booking.category || 'Room' },
                 { status: 'Booked' }
             );
         }
 
-        // Update revenue record if exists, or create new one for payments
-        if (advance > 0) {
-            const existingRevenue = await Revenue.findOne({ bookingId: booking._id });
-
-            if (existingRevenue) {
-                await Revenue.findOneAndUpdate(
-                    { bookingId: booking._id },
-                    {
-                        amount: advance,
-                        status: 'Received',
-                        paymentMethod: paymentMethod || 'Cash',
-                        bookingSource: booking.source
-                    }
-                );
-            } else {
-                await Revenue.create({
-                    source: 'Room Booking',
-                    amount: advance,
-                    description: `Payment for ${booking.guest} - ${booking.room}`,
-                    bookingId: booking._id,
-                    bookingSource: booking.source,
-                    paymentMethod: paymentMethod || 'Cash',
-                    status: 'Received',
-                    date: new Date(),
-                    property: booking.property
-                });
-            }
+        // Always create a new revenue entry for each payment received
+        if (advanceAmount > 0) {
+            await Revenue.create({
+                source: 'Room Booking',
+                amount: advanceAmount,
+                description: `Payment received for ${booking.guest} - ${booking.room} (${booking.roomNumber})`,
+                bookingId: booking._id,
+                bookingSource: booking.source,
+                paymentMethod: paymentMethod || 'Cash',
+                status: 'Received',
+                date: new Date(),
+                property: booking.property
+            });
         }
 
         // console.log('Payment updated successfully:', updatedBooking._id);
@@ -489,6 +480,7 @@ exports.deleteBooking = async (req, res) => {
         const activeBookings = await Booking.find({
             roomNumber: booking.roomNumber,
             property: booking.property,
+            category: booking.category || 'Room',
             status: { $in: ['Confirmed', 'Checked-in'] }
         });
 
@@ -496,7 +488,7 @@ exports.deleteBooking = async (req, res) => {
         const newRoomStatus = activeBookings.length > 0 ? 'Booked' : 'Available';
         
         await Room.findOneAndUpdate(
-            { roomNumber: booking.roomNumber, property: booking.property },
+            { roomNumber: booking.roomNumber, property: booking.property, category: booking.category || 'Room' },
             { status: newRoomStatus }
         );
 
