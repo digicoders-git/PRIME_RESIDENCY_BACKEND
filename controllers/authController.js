@@ -225,3 +225,44 @@ exports.changePassword = async (req, res) => {
         res.status(400).json({ success: false, message: err.message });
     }
 };
+
+// @desc    Register admin (Requires Admin Secret)
+// @route   POST /api/auth/register-admin
+// @access  Public (Secret Key Protected)
+exports.registerAdmin = async (req, res) => {
+    try {
+        const { name, email, password, adminSecret } = req.body;
+
+        // Check if adminSecret matches
+        const configuredSecret = process.env.ADMIN_SECRET || 'PrimEResidency@2026@AdminSecret';
+        if (!adminSecret || adminSecret !== configuredSecret) {
+            return res.status(401).json({ success: false, message: 'Unauthorized. Invalid admin secret.' });
+        }
+
+        if (!name || !email || !password) {
+            return res.status(400).json({ success: false, message: 'Please provide name, email and password' });
+        }
+
+        const emailLower = email.toLowerCase();
+
+        // Check if user already exists
+        const userExists = await User.findOne({ email: emailLower });
+        if (userExists) {
+            return res.status(400).json({ success: false, message: 'Admin with this email already exists' });
+        }
+
+        // Create the admin user
+        const user = await User.create({
+            name,
+            email: emailLower,
+            password
+        });
+
+        // Set role explicitly for response
+        user.role = 'Admin';
+        sendTokenResponse(user, 201, res);
+    } catch (err) {
+        res.status(400).json({ success: false, message: err.message });
+    }
+};
+

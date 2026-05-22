@@ -1,0 +1,1737 @@
+{
+	"info": {
+		"_postman_id": "8a32a68c-1e24-4f93-b45d-4f24ef4b00ad",
+		"name": "Prime Residency API Collection",
+		"description": "This is a comprehensive, production-ready Postman collection for the Prime Residency Hotel Booking Backend. It includes all authentication, room config, rooms, booking, payment, revenue, managers, food management, and reviews APIs. A newly added 'Admin Registration' API allows dynamic creation of Admin accounts securely.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Authentication & Profile",
+			"description": "Endpoints relating to user profile management, login, forgot password, profile updates, and admin registration.",
+			"item": [
+				{
+					"name": "Register Admin (Dynamic Creation)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Super Admin\",\n  \"email\": \"admin@prime.com\",\n  \"password\": \"admin123\",\n  \"adminSecret\": \"PrimEResidency@2026@AdminSecret\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/register-admin",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"register-admin"
+							]
+						},
+						"description": "Creates an Admin user in the system. Requires `adminSecret` from the `.env` configuration file to prevent unauthorized signups."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin/Manager Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.success && jsonData.token) {",
+									"    if (jsonData.user.role === 'Admin') {",
+									"        pm.collectionVariables.set('admin_token', jsonData.token);",
+									"        console.log('Saved admin_token to collection variables.');",
+									"    } else {",
+									"        pm.collectionVariables.set('manager_token', jsonData.token);",
+									"        console.log('Saved manager_token to collection variables.');",
+									"    }",
+									"}"
+								],
+								"type": "javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"admin@prime.com\",\n  \"password\": \"admin123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Logs in either an Admin or a Manager. It returns a JWT token which gets automatically saved to the corresponding collection variables via the Test Script."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current Profile (Me)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"me"
+							]
+						},
+						"description": "Fetches details of the currently logged-in Admin or Manager. Requires bearer authorization."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Profile",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Updated Admin Name\",\n  \"phone\": \"9876543210\",\n  \"profilePic\": \"https://res.cloudinary.com/dy7p8f0qd/image/upload/v1/profile_pics/pic.jpg\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/updateprofile",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"updateprofile"
+							]
+						},
+						"description": "Updates the current user's profile details."
+					},
+					"response": []
+				},
+				{
+					"name": "Change Password",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"currentPassword\": \"admin123\",\n  \"newPassword\": \"admin456\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/changepassword",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"changepassword"
+							]
+						},
+						"description": "Changes the password of the currently authenticated user."
+					},
+					"response": []
+				},
+				{
+					"name": "Forgot Password",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"admin@prime.com\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/forgotpassword",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"forgotpassword"
+							]
+						},
+						"description": "Requests a password reset token. In development, the token is returned directly in the response payload for debugging ease."
+					},
+					"response": []
+				},
+				{
+					"name": "Reset Password",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"password\": \"admin123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/resetpassword/:resettoken",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"resetpassword",
+								":resettoken"
+							],
+							"variable": [
+								{
+									"key": "resettoken",
+									"value": "put-your-reset-token-here"
+								}
+							]
+						},
+						"description": "Resets the password using the reset token received from the Forgot Password endpoint."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Rooms Management",
+			"description": "Endpoints to fetch, create, edit, and delete rooms. Handles property boundaries.",
+			"item": [
+				{
+					"name": "Get All Rooms",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/rooms?property=Prime Residency&category=Room",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"rooms"
+							],
+							"query": [
+								{
+									"key": "property",
+									"value": "Prime Residency",
+									"description": "Filter rooms by property ('Prime Residency' or 'Prem Kunj')"
+								},
+								{
+									"key": "category",
+									"value": "Room",
+									"description": "Filter rooms by category ('Room', 'Banquet', 'Lawn')"
+								}
+							]
+						},
+						"description": "Retrieves all rooms. Admins can view all properties, Managers are auto-filtered to their assigned property."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Room",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "name",
+									"value": "Luxury Deluxe Suite",
+									"type": "text"
+								},
+								{
+									"key": "roomNumber",
+									"value": "101",
+									"type": "text"
+								},
+								{
+									"key": "type",
+									"value": "Deluxe",
+									"type": "text"
+								},
+								{
+									"key": "category",
+									"value": "Room",
+									"type": "text"
+								},
+								{
+									"key": "property",
+									"value": "Prime Residency",
+									"type": "text"
+								},
+								{
+									"key": "price",
+									"value": "3500",
+									"type": "text"
+								},
+								{
+									"key": "discount",
+									"value": "10",
+									"type": "text"
+								},
+								{
+									"key": "extraBedPrice",
+									"value": "500",
+									"type": "text"
+								},
+								{
+									"key": "taxGST",
+									"value": "12",
+									"type": "text"
+								},
+								{
+									"key": "enableExtraCharges",
+									"value": "true",
+									"type": "text"
+								},
+								{
+									"key": "description",
+									"value": "Spacious and modern air-conditioned deluxe suite with king size bed and private balcony.",
+									"type": "text"
+								},
+								{
+									"key": "maxAdults",
+									"value": "3",
+									"type": "text"
+								},
+								{
+									"key": "maxChildren",
+									"value": "2",
+									"type": "text"
+								},
+								{
+									"key": "bedType",
+									"value": "King Size",
+									"type": "text"
+								},
+								{
+									"key": "floorNumber",
+									"value": "1st Floor",
+									"type": "text"
+								},
+								{
+									"key": "roomSize",
+									"value": "350 sq ft",
+									"type": "text"
+								},
+								{
+									"key": "amenities",
+									"value": "AC, WiFi, Smart TV, Mini Bar, Balcony",
+									"type": "text"
+								},
+								{
+									"key": "image",
+									"type": "file",
+									"src": [],
+									"description": "Upload primary room image here"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/rooms",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"rooms"
+							]
+						},
+						"description": "Creates a new room. Supports file uploads for primary room image and gallery images via multipart/form-data."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Room by Room Number",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/rooms/by-number/:roomNumber",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"rooms",
+								"by-number",
+								":roomNumber"
+							],
+							"variable": [
+								{
+									"key": "roomNumber",
+									"value": "101"
+								}
+							]
+						},
+						"description": "Fetches a single room detail by its room number (Public endpoint)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Room by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/rooms/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"rooms",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "6648cb91ab1a120034a1b021",
+									"description": "Replace with real Room MongoDB ID"
+								}
+							]
+						},
+						"description": "Fetches a single room detail by its MongoDB ObjectId."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Room",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "price",
+									"value": "3800",
+									"type": "text"
+								},
+								{
+									"key": "status",
+									"value": "Available",
+									"type": "text"
+								},
+								{
+									"key": "description",
+									"value": "Updated deluxe suite description with premium amenities.",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/rooms/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"rooms",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "6648cb91ab1a120034a1b021"
+								}
+							]
+						},
+						"description": "Updates an existing room's details. Supports modifying files and pricing configurations."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Available Rooms for Booking",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/rooms/available?property=Prime Residency&checkIn=2026-05-25&checkOut=2026-05-27",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"rooms",
+								"available"
+							],
+							"query": [
+								{
+									"key": "property",
+									"value": "Prime Residency"
+								},
+								{
+									"key": "checkIn",
+									"value": "2026-05-25"
+								},
+								{
+									"key": "checkOut",
+									"value": "2026-05-27"
+								}
+							]
+						},
+						"description": "Public website route to fetch available rooms for a selected date range. Cross-references booking dates to filter out booked rooms."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Room",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/rooms/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"rooms",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "6648cb91ab1a120034a1b021"
+								}
+							]
+						},
+						"description": "Deletes a room and cleans up its associated images from Cloudinary storage."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. Bookings Management",
+			"description": "Hotel check-ins, website bookings, payment updates, and extra charge increments.",
+			"item": [
+				{
+					"name": "Get All Bookings",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/bookings?page=1&limit=50",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"bookings"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "50"
+								}
+							]
+						},
+						"description": "Retrieves all bookings with pagination support. Protected for Admins and Managers."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Booking",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "guest",
+									"value": "Rohan Sharma",
+									"type": "text"
+								},
+								{
+									"key": "email",
+									"value": "rohan@gmail.com",
+									"type": "text"
+								},
+								{
+									"key": "phone",
+									"value": "9876543211",
+									"type": "text"
+								},
+								{
+									"key": "idType",
+									"value": "Aadhaar Card",
+									"type": "text"
+								},
+								{
+									"key": "idNumber",
+									"value": "123456789012",
+									"type": "text"
+								},
+								{
+									"key": "checkIn",
+									"value": "2026-05-25T12:00:00.000Z",
+									"type": "text"
+								},
+								{
+									"key": "checkOut",
+									"value": "2026-05-27T11:00:00.000Z",
+									"type": "text"
+								},
+								{
+									"key": "adults",
+									"value": "2",
+									"type": "text"
+								},
+								{
+									"key": "children",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "room",
+									"value": "Luxury Deluxe Suite",
+									"type": "text"
+								},
+								{
+									"key": "roomNumber",
+									"value": "101",
+									"type": "text"
+								},
+								{
+									"key": "amount",
+									"value": "7000",
+									"type": "text"
+								},
+								{
+									"key": "advance",
+									"value": "2000",
+									"type": "text"
+								},
+								{
+									"key": "nights",
+									"value": "2",
+									"type": "text"
+								},
+								{
+									"key": "paymentMethod",
+									"value": "UPI",
+									"type": "text"
+								},
+								{
+									"key": "property",
+									"value": "Prime Residency",
+									"type": "text"
+								},
+								{
+									"key": "category",
+									"value": "Room",
+									"type": "text"
+								},
+								{
+									"key": "idFrontImage",
+									"type": "file",
+									"src": [],
+									"description": "Upload ID Card Front Image (Must be clear/not blurry)"
+								},
+								{
+									"key": "idBackImage",
+									"type": "file",
+									"src": [],
+									"description": "Upload ID Card Back Image (Must be clear/not blurry)"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/bookings",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"bookings"
+							]
+						},
+						"description": "Creates a new booking (public for website and dashboard). The system performs OpenCV blur checks on the ID front/back images. If an image is blurry, it prompts an error."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Booking by ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/bookings/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"bookings",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "6648cca4ab1a120034a1b055"
+								}
+							]
+						},
+						"description": "Gets details of a single booking by ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Booking Details (Status/Cancellation)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"Confirmed\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/bookings/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"bookings",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "6648cca4ab1a120034a1b055"
+								}
+							]
+						},
+						"description": "Updates booking attributes. Cancelling updates corresponding revenue documents automatically and sets room to Available."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Booking Payment (Add Payment/Advance)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"advance\": 5000,\n  \"paymentMethod\": \"UPI\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/bookings/:id/payment",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"bookings",
+								":id",
+								"payment"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "6648cca4ab1a120034a1b055"
+								}
+							]
+						},
+						"description": "Enables guest to pay an additional advance. Automatically decrements `balance`, updates `paymentStatus` ('Paid' or 'Partial'), and triggers a new Revenue document."
+					},
+					"response": []
+				},
+				{
+					"name": "Add Food Order to Booking",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"item\": \"Paneer Tikka Double Butter\",\n  \"quantity\": 2,\n  \"price\": 250\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/bookings/:id/food-order",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"bookings",
+								":id",
+								"food-order"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "6648cca4ab1a120034a1b055"
+								}
+							]
+						},
+						"description": "Adds a food item to a booking billing record. This automatically increments total booking `amount` and `balance` in the database."
+					},
+					"response": []
+				},
+				{
+					"name": "Add Extra Charge to Booking",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"description\": \"Late Check-Out Penalty\",\n  \"amount\": 1000\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/bookings/:id/extra-charge",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"bookings",
+								":id",
+								"extra-charge"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "6648cca4ab1a120034a1b055"
+								}
+							]
+						},
+						"description": "Applies a custom surcharge to the guest's billing invoice, incrementing booking `amount` and `balance` automatically."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Booking History by Identifier",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/bookings/history/:identifier",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"bookings",
+								"history",
+								":identifier"
+							],
+							"variable": [
+								{
+									"key": "identifier",
+									"value": "rohan@gmail.com",
+									"description": "Guest Email or phone number"
+								}
+							]
+						},
+						"description": "Finds all past bookings by search identifier (guest's email or phone number)."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Booking",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/bookings/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"bookings",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "6648cca4ab1a120034a1b055"
+								}
+							]
+						},
+						"description": "Deletes a booking and restores room status back to Available."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "4. Food & Orders Management",
+			"description": "Restaurant menu configuration and active customer food order workflows.",
+			"item": [
+				{
+					"name": "Get All Food Items",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/food-items",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"food-items"
+							]
+						},
+						"description": "Fetches all food items currently configured on the restaurant menu."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Food Item",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Paneer Tikka\",\n  \"category\": \"Main Course\",\n  \"price\": 220,\n  \"description\": \"Delicious charcoal-grilled cottage cheese cubes in rich spices.\",\n  \"isAvailable\": true,\n  \"property\": \"Prime Residency\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/food-items",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"food-items"
+							]
+						},
+						"description": "Adds a food item to the restaurant kitchen database."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Food Order",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"roomNumber\": \"101\",\n  \"guestName\": \"Rohan Sharma\",\n  \"items\": [\n    {\n      \"name\": \"Paneer Tikka\",\n      \"quantity\": 2,\n      \"price\": 220\n    }\n  ],\n  \"totalAmount\": 440,\n  \"paymentStatus\": \"Pending\",\n  \"property\": \"Prime Residency\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/food-orders",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"food-orders"
+							]
+						},
+						"description": "Places an active food order to a room (can be called by website or dashboard)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Food Orders",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/food-orders",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"food-orders"
+							]
+						},
+						"description": "Lists all current and past food orders. Requires bearer auth."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Food Order Status",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"Delivered\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/food-orders/:id/status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"food-orders",
+								":id",
+								"status"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "6648ccd1ab1a120034a1b089"
+								}
+							]
+						},
+						"description": "Updates kitchen delivery status of an order ('Pending', 'Preparing', 'Delivered', 'Cancelled')."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "5. Managers Management",
+			"description": "Manager creation and details. Managers are bounded to unique properties.",
+			"item": [
+				{
+					"name": "Get All Managers",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/managers?page=1&limit=20",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"managers"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Lists all managers deployed in the Prime Residency or Prem Kunj hotels."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Manager",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Amit Verma\",\n  \"email\": \"amit@prime.com\",\n  \"password\": \"manager123\",\n  \"phone\": \"9876543222\",\n  \"property\": \"Prime Residency\",\n  \"permissions\": {\n    \"checkInOut\": true,\n    \"viewBookings\": true,\n    \"viewRooms\": true,\n    \"billing\": true,\n    \"viewHistory\": true\n  },\n  \"salary\": 35000,\n  \"address\": \"Lucknow, India\",\n  \"emergencyContact\": \"9876543223\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/managers",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"managers"
+							]
+						},
+						"description": "Registers a new Manager assigned to a specific hotel property. Sets granular permissions for room access, check-ins, or billing."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Manager by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/managers/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"managers",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "6648ccffab1a120034a1b0aa"
+								}
+							]
+						},
+						"description": "Fetches a specific manager's details."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Manager Details",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"salary\": 38000,\n  \"status\": \"Active\",\n  \"permissions\": {\n    \"checkInOut\": true,\n    \"viewBookings\": true,\n    \"viewRooms\": true,\n    \"billing\": true,\n    \"viewHistory\": false\n  }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/managers/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"managers",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "6648ccffab1a120034a1b0aa"
+								}
+							]
+						},
+						"description": "Edits details or updates the salary / permissions of an active manager."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Manager",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/managers/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"managers",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "6648ccffab1a120034a1b0aa"
+								}
+							]
+						},
+						"description": "Deletes the manager record."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "6. Revenue & Analytics",
+			"description": "Earnings tracking, financial metrics, and custom transactions.",
+			"item": [
+				{
+					"name": "Get All Revenue Transactions",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/revenue?property=Prime Residency",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"revenue"
+							],
+							"query": [
+								{
+									"key": "property",
+									"value": "Prime Residency",
+									"description": "Filter transactions by property"
+								}
+							]
+						},
+						"description": "Lists all processed revenue transactions. Bounded by manager property context automatically if signed in as a Manager."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Custom Revenue Entry",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"source\": \"Banquet Booking Surcharge\",\n  \"amount\": 15000,\n  \"description\": \"Additional catering setup fee collected.\",\n  \"paymentMethod\": \"UPI\",\n  \"property\": \"Prime Residency\",\n  \"date\": \"2026-05-22T10:00:00.000Z\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/revenue",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"revenue"
+							]
+						},
+						"description": "Adds a manually entered revenue item (e.g. food sales, laundry payments, event rentals)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Revenue Analytics & Charts",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/revenue/analytics?startDate=2026-05-01&endDate=2026-05-31",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"revenue",
+								"analytics"
+							],
+							"query": [
+								{
+									"key": "startDate",
+									"value": "2026-05-01"
+								},
+								{
+									"key": "endDate",
+									"value": "2026-05-31"
+								}
+							]
+						},
+						"description": "Fetches graphical and numerical revenue analytics (earnings by source, date trends, property wise breakdown)."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "7. Other Utilities (Enquiries, Reviews & RoomConfigs)",
+			"description": "Web interactions like guest reviews, contact enquiries, icons, and categories.",
+			"item": [
+				{
+					"name": "Create Enquiry / Web Request",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Kabir Singh\",\n  \"email\": \"kabir@gmail.com\",\n  \"phone\": \"9876543233\",\n  \"subject\": \"Corporate Lawn Booking inquiry\",\n  \"message\": \"We need to book the lawn for 150 people on June 15th. What are the buffet charges?\",\n  \"property\": \"Prime Residency\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/enquiries",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"enquiries"
+							]
+						},
+						"description": "Creates a guest query / enquiry from the frontend website."
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Enquiries",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/enquiries",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"enquiries"
+							]
+						},
+						"description": "Retrieves the database of all submitted customer enquiries."
+					},
+					"response": []
+				},
+				{
+					"name": "Submit Guest Review",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "customerName",
+									"value": "Ananya Sen",
+									"type": "text"
+								},
+								{
+									"key": "rating",
+									"value": "5",
+									"type": "text"
+								},
+								{
+									"key": "reviewText",
+									"value": "An absolute gem of a hotel! The room was spotless, the staff was extremely friendly and welcoming. High recommendation for families!",
+									"type": "text"
+								},
+								{
+									"key": "property",
+									"value": "Prime Residency",
+									"type": "text"
+								},
+								{
+									"key": "customerImage",
+									"type": "file",
+									"src": [],
+									"description": "Optional profile pic upload for reviewer"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/reviews",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reviews"
+							]
+						},
+						"description": "Submits a review from the website frontend. All reviews start as pending until approved by the Admin."
+					},
+					"response": []
+				},
+				{
+					"name": "Approve Review",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"Approved\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/reviews/:id/approve",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"reviews",
+								":id",
+								"approve"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "6648cd91ab1a120034a1b01c"
+								}
+							]
+						},
+						"description": "Approves a pending guest review to be displayed live on the home page."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Room Configurations",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/room-config",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"room-config"
+							]
+						},
+						"description": "Fetches structural lists of categories, types, or floor mappings."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Room Configuration Entry",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{admin_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"type\": \"amenity\",\n  \"value\": \"Bathtub\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/room-config",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"room-config"
+							]
+						},
+						"description": "Adds a room-config value dynamically (e.g. creating room categories or a new amenity like 'Pool View')."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:5000",
+			"type": "string"
+		},
+		{
+			"key": "admin_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "manager_token",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
