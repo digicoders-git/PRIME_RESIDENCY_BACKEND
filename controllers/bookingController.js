@@ -31,6 +31,10 @@ exports.getBookings = async (req, res) => {
             // console.log('✓ No property filter (Admin viewing all)');
         }
 
+        if (req.query.status) {
+            query.status = req.query.status;
+        }
+
         // Add pagination
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 50;

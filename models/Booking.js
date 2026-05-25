@@ -75,7 +75,7 @@ const bookingSchema = new mongoose.Schema({
     },
     nights: {
         type: Number,
-        required: true
+        default: 0
     },
     specialRequests: {
         type: String
