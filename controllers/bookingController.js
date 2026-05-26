@@ -235,9 +235,95 @@ exports.updateBooking = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Checked-out booking ka status change nahi ho sakta' });
         }
 
-        // Agar sirf status change ho raha hai to paymentStatus ko touch mat karo
-        if (req.body.status && Object.keys(req.body).length === 1) {
-            // Only status is being updated — preserve paymentStatus
+        const oldStatus = oldBooking.status;
+        const newStatus = req.body.status || oldStatus;
+
+        // Auto-assign checkout date if status is changing to 'Checked-out' and checkout is not set
+        if (newStatus === 'Checked-out' && oldStatus !== 'Checked-out' && !req.body.checkOut) {
+            req.body.checkOut = new Date();
+        }
+
+        // 1. Recalculate stay duration and price on checkIn, checkOut, or Checked-out status transition
+        if (req.body.checkIn || req.body.checkOut || (newStatus === 'Checked-out' && oldStatus !== 'Checked-out')) {
+            const checkIn = req.body.checkIn ? new Date(req.body.checkIn) : new Date(oldBooking.checkIn);
+            let checkOut = req.body.checkOut ? new Date(req.body.checkOut) : (oldBooking.checkOut ? new Date(oldBooking.checkOut) : null);
+
+            if (!checkOut) {
+                checkOut = new Date(checkIn.getTime() + 24 * 60 * 60 * 1000);
+                req.body.checkOut = checkOut;
+            }
+
+            const date1 = Date.UTC(checkIn.getFullYear(), checkIn.getMonth(), checkIn.getDate());
+            const date2 = Date.UTC(checkOut.getFullYear(), checkOut.getMonth(), checkOut.getDate());
+            const calculatedNights = Math.max(1, Math.floor((date2 - date1) / (1000 * 60 * 60 * 24)));
+            req.body.nights = calculatedNights;
+
+            // Fetch the room price
+            const room = await Room.findOne({
+                roomNumber: oldBooking.roomNumber,
+                property: oldBooking.property,
+                category: oldBooking.category || 'Room'
+            });
+
+            const pricePerNight = room ? Number(room.price) : (oldBooking.amount / (oldBooking.nights || 1));
+            const discount = oldBooking.discount || 0;
+            const extraBed = oldBooking.extraBedPrice || 0;
+            const tax = oldBooking.taxGST || 0;
+
+            const subtotal = pricePerNight + extraBed;
+            const afterDiscount = subtotal - (subtotal * discount / 100);
+            const taxAmount = afterDiscount * tax / 100;
+            const finalPricePerNight = Math.round(afterDiscount + taxAmount);
+
+            const calculatedAmount = finalPricePerNight * calculatedNights;
+            req.body.amount = calculatedAmount;
+
+            const foodTotal = (oldBooking.foodOrders || []).reduce((sum, order) => sum + (order.amount || 0), 0);
+            const extraChargesTotal = (oldBooking.extraCharges || []).reduce((sum, charge) => sum + (charge.amount || 0), 0);
+
+            const calculatedBalance = Math.max(0, calculatedAmount + foodTotal + extraChargesTotal - oldBooking.advance);
+            req.body.balance = calculatedBalance;
+
+            let calculatedPaymentStatus = oldBooking.paymentStatus;
+            if (calculatedBalance <= 0 && calculatedAmount > 0) {
+                calculatedPaymentStatus = 'Paid';
+            } else if (oldBooking.advance > 0 && calculatedBalance > 0) {
+                calculatedPaymentStatus = 'Partial';
+            } else if (newStatus !== 'Cancelled') {
+                calculatedPaymentStatus = 'Pending';
+            }
+            req.body.paymentStatus = calculatedPaymentStatus;
+        }
+        // 2. Manual override: if the manager is editing pricing details directly
+        else if (req.body.amount !== undefined || req.body.discount !== undefined || req.body.extraBedPrice !== undefined || req.body.taxGST !== undefined) {
+            const amount = req.body.amount !== undefined ? Number(req.body.amount) : oldBooking.amount;
+            const discount = req.body.discount !== undefined ? Number(req.body.discount) : oldBooking.discount;
+            const extraBedPrice = req.body.extraBedPrice !== undefined ? Number(req.body.extraBedPrice) : oldBooking.extraBedPrice;
+            const taxGST = req.body.taxGST !== undefined ? Number(req.body.taxGST) : oldBooking.taxGST;
+
+            req.body.amount = amount;
+            req.body.discount = discount;
+            req.body.extraBedPrice = extraBedPrice;
+            req.body.taxGST = taxGST;
+
+            const foodTotal = (oldBooking.foodOrders || []).reduce((sum, order) => sum + (order.amount || 0), 0);
+            const extraChargesTotal = (oldBooking.extraCharges || []).reduce((sum, charge) => sum + (charge.amount || 0), 0);
+
+            const calculatedBalance = Math.max(0, amount + foodTotal + extraChargesTotal - oldBooking.advance);
+            req.body.balance = calculatedBalance;
+
+            let calculatedPaymentStatus = oldBooking.paymentStatus;
+            if (calculatedBalance <= 0 && amount > 0) {
+                calculatedPaymentStatus = 'Paid';
+            } else if (oldBooking.advance > 0 && calculatedBalance > 0) {
+                calculatedPaymentStatus = 'Partial';
+            } else if (newStatus !== 'Cancelled') {
+                calculatedPaymentStatus = 'Pending';
+            }
+            req.body.paymentStatus = calculatedPaymentStatus;
+        }
+        // 3. Simple status update (e.g., Pending -> Confirmed or Checked-in) without stay or price edits
+        else if (req.body.status && Object.keys(req.body).length === 1) {
             req.body.paymentStatus = oldBooking.paymentStatus;
         }
 

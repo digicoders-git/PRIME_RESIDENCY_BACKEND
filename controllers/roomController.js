@@ -206,10 +206,18 @@ exports.getRoom = async (req, res) => {
             checkOut: { $gte: new Date() }
         });
 
+        // Get recent bookings for this room in the correct property context
+        const bookingFilter = { roomNumber: room.roomNumber, property: room.property };
+        const recentBookings = await Booking.find(bookingFilter)
+            .sort({ createdAt: -1 })
+            .limit(3)
+            .populate('guest', 'name email phone');
+
         const roomObj = room.toObject();
         if (activeBooking && room.status !== 'Maintenance') {
             roomObj.status = 'Booked';
         }
+        roomObj.recentBookings = recentBookings;
 
         res.status(200).json({ success: true, data: roomObj });
     } catch (err) {

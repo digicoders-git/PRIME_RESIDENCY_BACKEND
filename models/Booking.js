@@ -30,8 +30,7 @@ const bookingSchema = new mongoose.Schema({
         required: [true, 'Please add a check-in date']
     },
     checkOut: {
-        type: Date,
-        required: [true, 'Please add a check-out date']
+        type: Date
     },
     adults: {
         type: Number,
@@ -72,6 +71,10 @@ const bookingSchema = new mongoose.Schema({
     taxGST: {
         type: Number,
         default: 0
+    },
+    gstType: {
+        type: String,
+        default: 'CGST+SGST'
     },
     nights: {
         type: Number,
@@ -153,6 +156,9 @@ bookingSchema.index({ paymentStatus: 1 });
 
 // Calculate total amount and balance before saving
 bookingSchema.pre('save', async function () {
+    if (!this.checkOut && this.checkIn) {
+        this.checkOut = new Date(this.checkIn.getTime() + 24 * 60 * 60 * 1000);
+    }
     const foodTotal = this.foodOrders.reduce((sum, order) => sum + (order.amount || 0), 0);
     const extraChargesTotal = this.extraCharges.reduce((sum, charge) => sum + (charge.amount || 0), 0);
 

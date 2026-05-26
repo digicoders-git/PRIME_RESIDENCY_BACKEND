@@ -52,6 +52,10 @@ const roomSchema = new mongoose.Schema({
     offerPrice: Number,
     extraBedPrice: Number,
     taxGST: Number,
+    gstType: {
+        type: String,
+        default: 'CGST+SGST'
+    },
     totalPrice: Number,
 
     // Charges Configuration
