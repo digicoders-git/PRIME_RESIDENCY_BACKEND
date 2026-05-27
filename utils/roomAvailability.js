@@ -1,33 +1,45 @@
 const Booking = require('../models/Booking');
 const Room = require('../models/Room');
 
-// Check and update room availability based on current bookings
+// Check and update room availability based on current bookings (optimized bulk implementation)
 exports.updateRoomAvailability = async () => {
     try {
-        // Get all rooms
-        const allRooms = await Room.find({});
-        
+        // 1. Get all active bookings
+        const activeBookings = await Booking.find({
+            status: { $in: ['Confirmed', 'Checked-in'] }
+        }).select('roomNumber property category').lean();
+
+        // 2. Build a quick lookup Set of active booked room keys
+        const bookedRoomKeys = new Set(
+            activeBookings.map(b => `${b.roomNumber}_${b.property}_${b.category || 'Room'}`)
+        );
+
+        // 3. Get all rooms
+        const allRooms = await Room.find({}).lean();
+
+        // 4. Identify rooms that actually need status updates
+        const bulkOps = [];
         for (const room of allRooms) {
-            // Check if room has any active bookings — match by roomNumber + property + category
-            const activeBookings = await Booking.find({
-                roomNumber: room.roomNumber,
-                property: room.property,
-                category: room.category,
-                status: { $in: ['Confirmed', 'Checked-in'] }
-            });
-            
-            // Update room status based on active bookings
-            const newStatus = activeBookings.length > 0 ? 'Booked' : 'Available';
-            
-            if (room.status !== newStatus && room.status !== 'Maintenance') {
-                await Room.findByIdAndUpdate(room._id, { status: newStatus });
-                // console.log(`Room ${room.roomNumber} (${room.property}) status updated to: ${newStatus}`);
+            const isBooked = bookedRoomKeys.has(`${room.roomNumber}_${room.property}_${room.category || 'Room'}`);
+            const expectedStatus = isBooked ? 'Booked' : 'Available';
+
+            if (room.status !== expectedStatus && room.status !== 'Maintenance') {
+                bulkOps.push({
+                    updateOne: {
+                        filter: { _id: room._id },
+                        update: { $set: { status: expectedStatus } }
+                    }
+                });
             }
         }
-        
-        // console.log('Room availability check completed');
+
+        // 5. Run bulk updates if any room status changed
+        if (bulkOps.length > 0) {
+            await Room.bulkWrite(bulkOps);
+            console.log(`[AVAILABILITY] Bulk updated ${bulkOps.length} rooms' availability statuses.`);
+        }
     } catch (error) {
-        // console.error('Error updating room availability:', error);
+        console.error('Error in optimized updateRoomAvailability:', error);
     }
 };
 

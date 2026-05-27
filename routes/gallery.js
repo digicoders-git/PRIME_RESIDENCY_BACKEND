@@ -6,6 +6,13 @@ const {
     deleteImage
 } = require('../controllers/galleryController');
 const { protect } = require('../middleware/auth');
+const { cacheMiddleware, clearCache } = require('../middleware/cache');
+
+// Helper middleware to clear gallery cache
+const clearGalleryCache = (req, res, next) => {
+    clearCache('gallery');
+    next();
+};
 
 const router = express.Router();
 
@@ -27,11 +34,11 @@ const upload = multer({
 
 router
     .route('/')
-    .get(getGallery) // Public for website, but filters by property if authenticated
-    .post(protect, upload.single('image'), uploadImage);
+    .get(cacheMiddleware('gallery', 300), getGallery) // Public for website, cached for 5 minutes
+    .post(protect, upload.single('image'), clearGalleryCache, uploadImage);
 
 router
     .route('/:id')
-    .delete(protect, deleteImage);
+    .delete(protect, clearGalleryCache, deleteImage);
 
 module.exports = router;

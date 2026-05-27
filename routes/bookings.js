@@ -12,6 +12,13 @@ const {
     addFoodOrder,
     addExtraCharge
 } = require('../controllers/bookingController');
+const { clearCache } = require('../middleware/cache');
+
+// Helper middleware to clear rooms cache when bookings change
+const clearRoomsCache = (req, res, next) => {
+    clearCache('rooms');
+    next();
+};
 
 const router = express.Router();
 
@@ -50,13 +57,13 @@ const uploadFieldsWithErrorHandling = (req, res, next) => {
 router
     .route('/')
     .get(updateAvailabilityMiddleware, getBookings)
-    .post(uploadFieldsWithErrorHandling, createBooking);
+    .post(uploadFieldsWithErrorHandling, clearRoomsCache, createBooking);
 
 router
     .route('/:id')
     .get(getBooking)
-    .put(updateBooking)
-    .delete(deleteBooking);
+    .put(clearRoomsCache, updateBooking)
+    .delete(clearRoomsCache, deleteBooking);
 
 router
     .route('/history/:identifier')
@@ -64,14 +71,14 @@ router
 
 router
     .route('/:id/payment')
-    .put(updateBookingPayment);
+    .put(clearRoomsCache, updateBookingPayment);
 
 router
     .route('/:id/food-order')
-    .post(addFoodOrder);
+    .post(clearRoomsCache, addFoodOrder);
 
 router
     .route('/:id/extra-charge')
-    .post(addExtraCharge);
+    .post(clearRoomsCache, addExtraCharge);
 
 module.exports = router;

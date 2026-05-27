@@ -1,4 +1,5 @@
 const express = require('express');
+const https = require('https');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
@@ -83,3 +84,26 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
 });
+
+// Start self-pinging to keep Render free-tier instance alive (prevents cold starts)
+const RENDER_EXTERNAL_URL = process.env.RENDER_EXTERNAL_URL || 'https://prime-residency-backend.onrender.com';
+if (RENDER_EXTERNAL_URL && !RENDER_EXTERNAL_URL.includes('localhost') && !RENDER_EXTERNAL_URL.includes('127.0.0.1')) {
+    // Wait 10 seconds after server startup before firing the initial ping
+    setTimeout(() => {
+        console.log(`[Keep-Alive] Initializing self-ping routine targeting: ${RENDER_EXTERNAL_URL}`);
+        https.get(RENDER_EXTERNAL_URL, (res) => {
+            console.log(`[Keep-Alive] Initial ping successful. Status Code: ${res.statusCode}`);
+        }).on('error', (err) => {
+            console.error('[Keep-Alive] Initial ping failed:', err.message);
+        });
+
+        // Ping every 10 minutes to stay awake
+        setInterval(() => {
+            https.get(RENDER_EXTERNAL_URL, (res) => {
+                console.log(`[Keep-Alive] Self-ping successful. Status Code: ${res.statusCode}`);
+            }).on('error', (err) => {
+                console.error('[Keep-Alive] Self-ping failed:', err.message);
+            });
+        }, 10 * 60 * 1000);
+    }, 10000);
+}

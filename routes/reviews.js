@@ -9,6 +9,13 @@ const {
     approveReview
 } = require('../controllers/reviewController');
 const { protect } = require('../middleware/auth');
+const { cacheMiddleware, clearCache } = require('../middleware/cache');
+
+// Helper middleware to clear reviews cache
+const clearReviewsCache = (req, res, next) => {
+    clearCache('reviews');
+    next();
+};
 
 const router = express.Router();
 
@@ -27,17 +34,17 @@ const upload = multer({
 
 router
     .route('/')
-    .get(getReviews) // Public for website
-    .post(upload.single('customerImage'), createReview); // Public for website
+    .get(cacheMiddleware('reviews', 300), getReviews) // Public for website, cached 5 min
+    .post(upload.single('customerImage'), clearReviewsCache, createReview); // Public for website
 
 router
     .route('/:id')
-    .get(getReview)
-    .put(protect, updateReview)
-    .delete(protect, deleteReview);
+    .get(cacheMiddleware('reviews', 300), getReview)
+    .put(protect, clearReviewsCache, updateReview)
+    .delete(protect, clearReviewsCache, deleteReview);
 
 router
     .route('/:id/approve')
-    .put(protect, approveReview);
+    .put(protect, clearReviewsCache, approveReview);
 
 module.exports = router;

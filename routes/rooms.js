@@ -12,6 +12,13 @@ const {
 } = require('../controllers/roomController');
 
 const { protect } = require('../middleware/auth');
+const { cacheMiddleware, clearCache } = require('../middleware/cache');
+
+// Helper middleware to clear rooms cache
+const clearRoomsCache = (req, res, next) => {
+    clearCache('rooms');
+    next();
+};
 
 const router = express.Router();
 
@@ -38,21 +45,21 @@ const uploadFields = upload.fields([
 
 router
     .route('/')
-    .get(protect, updateAvailabilityMiddleware, getRooms)
-    .post(protect, uploadFields, createRoom);
+    .get(protect, updateAvailabilityMiddleware, cacheMiddleware('rooms', 120), getRooms)
+    .post(protect, uploadFields, clearRoomsCache, createRoom);
 
 // Route to get available rooms for booking
 router.route('/available')
-    .get(updateAvailabilityMiddleware, getAvailableRooms); // Public for website
+    .get(cacheMiddleware('rooms', 120), updateAvailabilityMiddleware, getAvailableRooms); // Public for website
 
 // Route to get room by room number (for URL privacy)
 router.route('/by-number/:roomNumber')
-    .get(getRoomByNumber); // Public for website
+    .get(cacheMiddleware('rooms', 120), getRoomByNumber); // Public for website
 
 router
     .route('/:id')
-    .get(getRoom)
-    .put(protect, uploadFields, updateRoom)
-    .delete(protect, deleteRoom);
+    .get(cacheMiddleware('rooms', 120), getRoom)
+    .put(protect, uploadFields, clearRoomsCache, updateRoom)
+    .delete(protect, clearRoomsCache, deleteRoom);
 
 module.exports = router;
