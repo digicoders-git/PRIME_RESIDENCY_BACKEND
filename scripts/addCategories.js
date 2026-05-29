@@ -6,7 +6,8 @@ const FoodCategory = require('../models/FoodCategory');
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/PrimeResidency';
+const localURI = 'mongodb://localhost:27017/PrimeResidency';
+const atlasURI = 'mongodb+srv://digicodersdevelopment_db_user:LsgpfZhoMejwO9Qd@cluster0.le63hap.mongodb.net/PrimEResidency?appName=Cluster0';
 
 const categoriesToAdd = [
     'Beverage',
@@ -22,14 +23,13 @@ const categoriesToAdd = [
     'Sweets/Desserts'
 ];
 
-async function addCategories() {
+async function seedDB(connectionString, dbName) {
     try {
-        console.log(`Connecting to MongoDB at: ${MONGO_URI}`);
-        await mongoose.connect(MONGO_URI);
-        console.log('Connected to MongoDB!');
+        console.log(`\n--- Connecting to ${dbName} DB ---`);
+        await mongoose.connect(connectionString);
+        console.log(`Connected to ${dbName}!`);
 
         for (const catName of categoriesToAdd) {
-            // Check if already exists for "All" property
             const existing = await FoodCategory.findOne({
                 name: { $regex: new RegExp(`^${catName}$`, 'i') },
                 property: 'All'
@@ -40,19 +40,26 @@ async function addCategories() {
                     name: catName,
                     property: 'All'
                 });
-                console.log(`Successfully added category: ${catName}`);
+                console.log(`[${dbName}] Added category: ${catName}`);
             } else {
-                console.log(`Category already exists: ${catName}`);
+                console.log(`[${dbName}] Category already exists: ${catName}`);
             }
         }
-
-        console.log('All categories processed successfully!');
+        console.log(`[${dbName}] Seeding complete!`);
     } catch (error) {
-        console.error('Error adding categories:', error);
+        console.error(`[${dbName}] Error:`, error.message);
     } finally {
         await mongoose.disconnect();
-        console.log('Disconnected from MongoDB.');
+        console.log(`Disconnected from ${dbName}.`);
     }
 }
 
-addCategories();
+async function run() {
+    // Seed local DB
+    await seedDB(localURI, 'Local');
+    
+    // Seed Atlas DB
+    await seedDB(atlasURI, 'Atlas (Cloud)');
+}
+
+run();

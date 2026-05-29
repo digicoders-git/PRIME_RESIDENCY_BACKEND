@@ -8,7 +8,8 @@ const {
     deleteFoodItem,
     getFoodCategories,
     createFoodCategory,
-    deleteFoodCategory
+    deleteFoodCategory,
+    updateFoodCategory
 } = require('../controllers/foodController');
 
 router.get('/', protect, getFoodItems);
@@ -19,6 +20,7 @@ router.delete('/:id', protect, deleteFoodItem);
 // Categories routes
 router.get('/categories', protect, getFoodCategories);
 router.post('/categories', protect, createFoodCategory);
+router.put('/categories/:id', protect, updateFoodCategory);
 router.delete('/categories/:id', protect, deleteFoodCategory);
 
 module.exports = router;

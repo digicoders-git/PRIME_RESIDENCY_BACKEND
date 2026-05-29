@@ -149,3 +149,26 @@ exports.deleteFoodCategory = async (req, res) => {
     }
 };
 
+exports.updateFoodCategory = async (req, res) => {
+    try {
+        const { name } = req.body;
+        if (!name) {
+            return res.status(400).json({ success: false, message: 'Category name is required' });
+        }
+
+        const category = await FoodCategory.findByIdAndUpdate(
+            req.params.id, 
+            { name: name.trim() }, 
+            { new: true }
+        );
+
+        if (!category) {
+            return res.status(404).json({ success: false, message: 'Category not found' });
+        }
+
+        res.json({ success: true, data: category });
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
