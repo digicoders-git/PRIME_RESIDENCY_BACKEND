@@ -6,8 +6,7 @@ const bookingSchema = new mongoose.Schema({
         required: [true, 'Please add a guest name']
     },
     email: {
-        type: String,
-        required: [true, 'Please add an email']
+        type: String
     },
     phone: {
         type: String,
