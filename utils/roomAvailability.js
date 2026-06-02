@@ -46,6 +46,9 @@ exports.updateRoomAvailability = async () => {
 // Check if a room is available for given dates
 exports.isRoomAvailable = async (roomNumber, checkIn, checkOut, excludeBookingId = null, property = null, category = null) => {
     try {
+        if (!checkIn || !checkOut) {
+            return true;
+        }
         const query = {
             roomNumber: roomNumber,
             status: { $in: ['Confirmed', 'Checked-in'] },
@@ -82,6 +85,10 @@ exports.getAvailableRoomsForDates = async (checkIn, checkOut) => {
     try {
         // Get all visible rooms
         const allRooms = await Room.find({ visibility: true, status: { $ne: 'Maintenance' } });
+
+        if (!checkIn || !checkOut) {
+            return allRooms;
+        }
 
         // Get booked rooms for the date range
         const bookedRooms = await Booking.find({

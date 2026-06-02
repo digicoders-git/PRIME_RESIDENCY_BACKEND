@@ -245,54 +245,56 @@ exports.updateBooking = async (req, res) => {
 
         // 1. Recalculate stay duration and price on checkIn, checkOut, or Checked-out status transition
         if (req.body.checkIn || req.body.checkOut || (newStatus === 'Checked-out' && oldStatus !== 'Checked-out')) {
-            const checkIn = req.body.checkIn ? new Date(req.body.checkIn) : new Date(oldBooking.checkIn);
+            const checkIn = req.body.checkIn ? new Date(req.body.checkIn) : (oldBooking.checkIn ? new Date(oldBooking.checkIn) : null);
             let checkOut = req.body.checkOut ? new Date(req.body.checkOut) : (oldBooking.checkOut ? new Date(oldBooking.checkOut) : null);
 
-            if (!checkOut) {
-                checkOut = new Date(checkIn.getTime() + 24 * 60 * 60 * 1000);
-                req.body.checkOut = checkOut;
+            if (checkIn) {
+                if (!checkOut) {
+                    checkOut = new Date(checkIn.getTime() + 24 * 60 * 60 * 1000);
+                    req.body.checkOut = checkOut;
+                }
+
+                const date1 = Date.UTC(checkIn.getFullYear(), checkIn.getMonth(), checkIn.getDate());
+                const date2 = Date.UTC(checkOut.getFullYear(), checkOut.getMonth(), checkOut.getDate());
+                const calculatedNights = Math.max(1, Math.floor((date2 - date1) / (1000 * 60 * 60 * 24)));
+                req.body.nights = calculatedNights;
+
+                // Fetch the room price
+                const room = await Room.findOne({
+                    roomNumber: oldBooking.roomNumber,
+                    property: oldBooking.property,
+                    category: oldBooking.category || 'Room'
+                });
+
+                const pricePerNight = room ? Number(room.price) : (oldBooking.amount / (oldBooking.nights || 1));
+                const discount = oldBooking.discount || 0;
+                const extraBed = oldBooking.extraBedPrice || 0;
+                const tax = oldBooking.taxGST || 0;
+
+                const subtotal = pricePerNight + extraBed;
+                const afterDiscount = subtotal - (subtotal * discount / 100);
+                const taxAmount = afterDiscount * tax / 100;
+                const finalPricePerNight = Math.round(afterDiscount + taxAmount);
+
+                const calculatedAmount = finalPricePerNight * calculatedNights;
+                req.body.amount = calculatedAmount;
+
+                const foodTotal = (oldBooking.foodOrders || []).reduce((sum, order) => sum + (order.amount || 0), 0);
+                const extraChargesTotal = (oldBooking.extraCharges || []).reduce((sum, charge) => sum + (charge.amount || 0), 0);
+
+                const calculatedBalance = Math.max(0, calculatedAmount + foodTotal + extraChargesTotal - oldBooking.advance);
+                req.body.balance = calculatedBalance;
+
+                let calculatedPaymentStatus = oldBooking.paymentStatus;
+                if (calculatedBalance <= 0 && calculatedAmount > 0) {
+                    calculatedPaymentStatus = 'Paid';
+                } else if (oldBooking.advance > 0 && calculatedBalance > 0) {
+                    calculatedPaymentStatus = 'Partial';
+                } else if (newStatus !== 'Cancelled') {
+                    calculatedPaymentStatus = 'Pending';
+                }
+                req.body.paymentStatus = calculatedPaymentStatus;
             }
-
-            const date1 = Date.UTC(checkIn.getFullYear(), checkIn.getMonth(), checkIn.getDate());
-            const date2 = Date.UTC(checkOut.getFullYear(), checkOut.getMonth(), checkOut.getDate());
-            const calculatedNights = Math.max(1, Math.floor((date2 - date1) / (1000 * 60 * 60 * 24)));
-            req.body.nights = calculatedNights;
-
-            // Fetch the room price
-            const room = await Room.findOne({
-                roomNumber: oldBooking.roomNumber,
-                property: oldBooking.property,
-                category: oldBooking.category || 'Room'
-            });
-
-            const pricePerNight = room ? Number(room.price) : (oldBooking.amount / (oldBooking.nights || 1));
-            const discount = oldBooking.discount || 0;
-            const extraBed = oldBooking.extraBedPrice || 0;
-            const tax = oldBooking.taxGST || 0;
-
-            const subtotal = pricePerNight + extraBed;
-            const afterDiscount = subtotal - (subtotal * discount / 100);
-            const taxAmount = afterDiscount * tax / 100;
-            const finalPricePerNight = Math.round(afterDiscount + taxAmount);
-
-            const calculatedAmount = finalPricePerNight * calculatedNights;
-            req.body.amount = calculatedAmount;
-
-            const foodTotal = (oldBooking.foodOrders || []).reduce((sum, order) => sum + (order.amount || 0), 0);
-            const extraChargesTotal = (oldBooking.extraCharges || []).reduce((sum, charge) => sum + (charge.amount || 0), 0);
-
-            const calculatedBalance = Math.max(0, calculatedAmount + foodTotal + extraChargesTotal - oldBooking.advance);
-            req.body.balance = calculatedBalance;
-
-            let calculatedPaymentStatus = oldBooking.paymentStatus;
-            if (calculatedBalance <= 0 && calculatedAmount > 0) {
-                calculatedPaymentStatus = 'Paid';
-            } else if (oldBooking.advance > 0 && calculatedBalance > 0) {
-                calculatedPaymentStatus = 'Partial';
-            } else if (newStatus !== 'Cancelled') {
-                calculatedPaymentStatus = 'Pending';
-            }
-            req.body.paymentStatus = calculatedPaymentStatus;
         }
         // 2. Manual override: if the manager is editing pricing details directly
         else if (req.body.amount !== undefined || req.body.discount !== undefined || req.body.extraBedPrice !== undefined || req.body.taxGST !== undefined) {
